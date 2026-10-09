@@ -1,0 +1,35 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "FloorRelay",
+      "constructorArgs": []
+    },
+    {
+      "contract": "PawnShop",
+      "constructorArgs": [
+        "$owner",
+        "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
+        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "$contract:FloorRelay"
+      ]
+    },
+    {
+      "contract": "LockDiscount",
+      "constructorArgs": [
+        "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
+        "$contract:PawnShop"
+      ]
+    },
+    {
+      "contract": "MilestoneBurn",
+      "constructorArgs": [
+        "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
+        "$owner",
+        "$contract:FloorRelay",
+        "$contract:PawnShop"
+      ]
+    }
+  ],
+  "notes": "Ethereum mainnet (chain 1), using the accepted audit-fixed Pawn source unchanged. FloorRelay has no constructor arguments and fixes IMD_ATTESTER to 0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982 and CHAIN to 1. PawnShop arguments are owner, existing PAWN token, WETH and attester. Its constructor assigns ownership and feeRecipient to $owner, deploys LendingPool owned by $owner, deploys VaultFactory and an active LockDiscount, presets the identity.md question hash to 0x71ed43868c5c61fe21b72bbbdcc09913d4952a113a393c526e49f3289edf4be1, and leaves newLoansPaused true. The accepted implementation creates full CollateralVault contracts through VaultFactory per loan; it has no shared CollateralVault implementation address. The separately listed LockDiscount takes token and shop and is a spare, distinct from PawnShop.discountModule(); deployment does not activate it. MilestoneBurn arguments are token, question setter ($owner), initial signer (FloorRelay) and shop; its question hash remains unset under the owner's existing setter authority. All manifest deployments send zero ETH and require no initialization calls. This manifest is a deployment plan, not a record of completed deployment or publication. The subsequent handoff must verify the unchanged source on Etherscan and record confirmed addresses for all four listed contracts plus PawnShop.lendingPool(), PawnShop.vaultFactory() and PawnShop.discountModule(), distinguishing the active and spare discount modules. Confirmed addresses must be recorded in the launch record, schema-compatible launch.json notes, web/deployment.json, web/public/imd-deployment.json and keeper/config.json; the site and keeper must use the audit-fixed ABIs before the site is published under its existing name. Those deployment, verification and publication steps remain pending; no addresses are invented here."
+}
