@@ -207,6 +207,8 @@ function LoanDetails({ id, loan }: { id: bigint; loan: Loan }) {
       expires: bigint;
       fresh: boolean;
       written: boolean;
+      realised: boolean;
+      openedAt: bigint;
       price: bigint;
       credit: bigint;
       isSeat: boolean;
@@ -242,6 +244,8 @@ function LoanDetails({ id, loan }: { id: bigint; loan: Loan }) {
         expires,
         fresh,
         written,
+        realised,
+        openedAt,
         price,
         credit,
         isSeat,
@@ -252,6 +256,8 @@ function LoanDetails({ id, loan }: { id: bigint; loan: Loan }) {
         read(r, c, "workerExpiresAt"),
         read(r, r.contracts.PawnShop, "floorFresh", [loan.collection]),
         read(r, r.contracts.PawnShop, "writtenOff", [id]),
+        read(r, r.contracts.PawnShop, "debtRealised", [id]),
+        read(r, r.contracts.PawnShop, "auctionOpenedAt", [id]),
         loan.status === 2
           ? read(r, r.contracts.PawnShop, "auctionPrice", [id])
           : Promise.resolve(0n),
@@ -265,6 +271,8 @@ function LoanDetails({ id, loan }: { id: bigint; loan: Loan }) {
         expires,
         fresh,
         written,
+        realised,
+        openedAt,
         price,
         credit,
         isSeat,
@@ -397,7 +405,7 @@ function LoanDetails({ id, loan }: { id: bigint; loan: Loan }) {
             />
             <Action
               label="Refresh auction loss"
-              disabled={!data || data.written}
+              disabled={!data || data.realised}
               prepare={() => ({
                 contract: r!.contracts.PawnShop,
                 functionName: "markAuctionLoss",
@@ -410,10 +418,11 @@ function LoanDetails({ id, loan }: { id: bigint; loan: Loan }) {
               label="Write off auction debt"
               disabled={
                 !data ||
-                data.written ||
-                (data.holds && now < loan.auctionStarted + 3456000n)
+                data.realised ||
+                (data.holds &&
+                  (data.written || now < data.openedAt + 3456000n))
               }
-              reason="Available after 40 days, or earlier if collateral is missing. The auction remains open."
+              reason="Available 40 days after the auction first opened, or earlier if collateral is missing. The auction remains open; held collateral stays an expected-loss allowance until it is sold or gone."
               prepare={() => ({
                 contract: r!.contracts.PawnShop,
                 functionName: "writeOffAuction",

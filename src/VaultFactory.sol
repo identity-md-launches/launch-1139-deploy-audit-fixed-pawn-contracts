@@ -9,6 +9,8 @@ contract VaultFactory {
     error Unauthorized();
 
     address public immutable pawnShop;
+    /// @notice Every vault this factory created (launch review ce743ba5: never a valid auction receiver).
+    mapping(address => bool) public isVault;
 
     constructor() {
         pawnShop = msg.sender;
@@ -16,6 +18,8 @@ contract VaultFactory {
 
     function create() external returns (address) {
         if (msg.sender != pawnShop) revert Unauthorized();
-        return address(new CollateralVault(msg.sender));
+        address vault = address(new CollateralVault(msg.sender));
+        isVault[vault] = true;
+        return vault;
     }
 }

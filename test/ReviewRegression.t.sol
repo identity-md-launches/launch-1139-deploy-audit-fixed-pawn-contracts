@@ -81,23 +81,25 @@ contract ReviewRegressionTest is PawnTestBase {
         uint256 beforeLoss = pool.totalAssets();
         shop.writeOffAuction(id);
         assertTrue(shop.writtenOff(id));
-        assertEq(pool.totalBorrowed(), 0);
+        assertFalse(shop.debtRealised(id));
+        // Launch review (1753e7e5): the held token stays sellable, so the pool keeps the loan as an
+        // expected-loss allowance (principal less the terminal price, here nothing) instead of a realised loss.
+        assertEq(pool.totalBorrowed(), 0.4 ether);
         assertEq(shop.collectionDebt(address(nft)), 0);
         assertEq(discount.committed(alice), 0);
-        assertEq(pool.totalAssets(), beforeLoss - 0.4 ether);
-        assertEq(pool.cumulativeLoss(), 0.4 ether);
+        assertEq(pool.auctionLoss(id), 0);
+        assertEq(pool.totalAssets(), beforeLoss);
+        assertEq(pool.cumulativeLoss(), 0);
         assertEq(nft.ownerOf(1), shop.getLoan(id).vault);
         vm.expectRevert(PawnShop.InvalidLoan.selector);
         shop.writeOffAuction(id);
-        vm.expectRevert(PawnShop.InvalidLoan.selector);
-        shop.markAuctionLoss(id);
+        shop.markAuctionLoss(id); // the allowance may still be refreshed
         shop.buyAuction{value: 0.5 ether}(id, buyer);
         assertEq(nft.ownerOf(1), buyer);
-        assertEq(pool.cumulativeRecoveries(), 0.4 ether);
-        assertEq(pool.totalAssets(), beforeLoss - 0.4 ether);
-        assertEq(pool.totalBorrowed(), 0);
-        vm.warp(vm.getBlockTimestamp() + 7 days);
+        assertEq(pool.cumulativeRecoveries(), 0);
+        assertEq(pool.cumulativeLoss(), 0);
         assertEq(pool.totalAssets(), beforeLoss);
+        assertEq(pool.totalBorrowed(), 0);
     }
 
     function test_stuckAuctionLossSharedAfterWriteOff() public {
@@ -107,6 +109,10 @@ contract ReviewRegressionTest is PawnTestBase {
         _default(id);
         vm.warp(vm.getBlockTimestamp() + 365 days);
         shop.writeOffAuction(id);
+        // Held collateral at the terminal price covers the principal: no loss is booked yet.
+        assertApproxEqAbs(pool.maxWithdraw(bob), 5.0017 ether, 1);
+        nft.seize(1, address(0));
+        shop.writeOffAuction(id); // the collateral is gone: the principal is realised
         assertApproxEqAbs(pool.maxWithdraw(bob), 4.8017 ether, 1);
         uint256 shares = pool.balanceOf(bob);
         vm.prank(bob);
@@ -166,14 +172,16 @@ contract ReviewRegressionTest is PawnTestBase {
         nft.setFailTransfers(true);
         vm.warp(vm.getBlockTimestamp() + 40 days);
         shop.writeOffAuction(id);
-        assertEq(pool.totalBorrowed(), 0);
+        assertEq(shop.collectionDebt(address(nft)), 0);
+        assertEq(pool.totalBorrowed(), 0.4 ether);
         assertEq(discount.committed(alice), 0);
         vm.expectRevert("mock transfer failed");
         shop.buyAuction{value: 0.5 ether}(id, buyer);
-        assertEq(pool.cumulativeRecoveries(), 0);
+        assertEq(pool.totalBorrowed(), 0.4 ether);
         nft.setFailTransfers(false);
         shop.buyAuction{value: 0.5 ether}(id, buyer);
-        assertEq(pool.cumulativeRecoveries(), 0.4 ether);
+        assertEq(pool.totalBorrowed(), 0);
+        assertEq(pool.cumulativeLoss(), 0);
     }
 
     function test_onlyShopCanMarkOrSettleDebt() public {

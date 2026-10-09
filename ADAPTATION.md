@@ -137,6 +137,113 @@ SELFDESTRUCT, no owner is `msg.sender`, there is no launch token to add, and the
    resolved by change 2 and the manifest table above (FloorRelay first, passed as the attester, so
    the zero-consumer answers verify from the first block).
 
+## Launch review (revision): findings that reproduced and were fixed
+
+The independent review of the accepted work reported defects in the expected-loss ("mark") and
+release accounting. Each one below was reproduced with the reviewer's proof before anything changed;
+the proofs now pass unchanged, and `test/LaunchAdaptation.t.sol` carries a regression test per fix.
+
+10. **[high] b79122ba — a lowered mark was released instantly.** `LendingPool.markAuctionLoss` with
+    `mayDecrease = true` (reached permissionlessly through `startAuction` and `restartAuction`, which
+    mark at the fresh floor) wrote the decrease straight into `expectedAuctionLoss`, so `totalAssets()`
+    jumped in the same call and a deposit/startAuction/redeem round trip took part of the released
+    allowance from the lenders who bore the mark. Change (`src/LendingPool.sol`): every change of the
+    recognised book goes through `_reconcileRelease`: a rise (settlement or lowered mark) joins the
+    seven-day release stream exactly as `settleAuction` did (F4); a fall (a raised mark) first cancels
+    the unvested remainder so a loss re-marked after a release is not deducted twice
+    (`AllowanceReleaseCancelled`). Tests: `test_loweredMarkVestsInsteadOfReleasingAtOnce`,
+    `test_raisedMarkCancelsTheUnvestedReleaseFirst`.
+
+11. **[medium] e5e83677 — `totalAssets()` underflowed while a release vested.** After the idle cash was
+    withdrawn and the remaining loans marked as lost, cash + principal − loss − unvested release went
+    negative and every deposit, withdrawal, pawn, extend, repay of a marked loan and sale reverted
+    until the stream decayed. Change (`src/LendingPool.sol`): the unvested release is a deferral of
+    recognition, not an asset, and is now subtracted only up to what remains (`_recognisedAssets()`
+    minus `min(unvestedRelease(), …)`). Test: `test_totalAssetsNeverUnderflowsWhileAReleaseVests`;
+    `test/PawnInvariant.t.sol` asserts the clamped identity.
+
+12. **[medium] 3f291830 — `extend` left the overdue mark booked for the whole new term.** Change
+    (`src/PawnShop.sol`): `extend` releases a loan's mark (recovery = principal, `mayDecrease`) through
+    the same vesting stream, so a current loan carries no mark and a later `markOverdue` at the new
+    due date is a fresh mark rather than a refused decrease. Test:
+    `test_extendReleasesTheOverdueMarkThroughVesting`.
+
+13. **[medium] 548fab74 — entries were priced on a marked-but-unsettled allowance.** A deposit between
+    `markOverdue` and the settlement bought shares at the depressed price with no exposure to the
+    mark and then collected the vested release. Change (`src/LendingPool.sol`): `previewDeposit`,
+    `previewMint` and `maxMint` price entries on cash + principal − reserve − unvested donations, i.e.
+    as if every outstanding mark were sound and every release vested (an outstanding mark is treated
+    like an unvested release, as the review proposed). Entrants never beat a holder's price; a
+    depositor who thinks a mark will be realised waits for the settlement. Redemptions are unchanged.
+    `maxDeposit` keeps its `depositCap − totalAssets()` meaning. Test:
+    `test_entrantBetweenMarkAndSettlementBuysNoRelease`; the earlier
+    `test_depositDuringReleaseStreamCapturesNoneOfTheRelease` now also checks that the entrant's shares
+    are worth exactly what they paid once the second mark resolves.
+
+14. **[medium] 1753e7e5 — `writeOffAuction` realised the whole principal while the token was still
+    held and sellable.** The loss hit `cumulativeLoss` at once, the NFT stayed purchasable at the
+    terminal price, and a late entrant could deposit after the write-off and buy the collateral,
+    taking most of its own purchase price back through `receiveRecovery`. Change (`src/PawnShop.sol`):
+    a write-off still frees the collection's share (`collectionDebt`) and the PAWN commitment after 40
+    days, but while `holdsCollateral()` is true the pool keeps the loan as an expected-loss allowance
+    (principal − current auction price, refreshable through `markAuctionLoss`, released on a fresh
+    restart through the vesting stream); a sale then settles through `settleAuction`. The principal
+    is realised (`debtRealised[id]`, reserve consumed, `cumulativeLoss`) only once the collateral is
+    gone, by a second `writeOffAuction` call; a token that later returns to the vault is sold as a late
+    recovery (F9) as before. `restartAuction` and `markAuctionLoss` key on `debtRealised` instead of
+    `writtenOff`. Tests: `test_writeOffKeepsHeldCollateralAsAnAllowance`,
+    `test_writeOffMarksTheUnrecoveredPartWhileCollateralIsHeld`,
+    `test_writeOffRealisesThePrincipalOnceCollateralIsGone`. Existing tests that asserted the
+    immediate realisation (`test/ReviewRegression.t.sol`: `test_writeOffUnsoldAuctionUnlocksAndLateRecoveryVests`,
+    `test_stuckAuctionLossSharedAfterWriteOff`, `test_transferRestrictionDoesNotBlockFinancialWriteOff`;
+    `test/AuditFixes.t.sol`: `test_F2_restartAfterWriteOffRoutesProceedsThroughRecovery`,
+    `test_F9_recoveryRestoresConsumedReserveFirst`; `test/LaunchAdaptation.t.sol`:
+    `test_writtenOffAuctionCannotBeRestartedEveryBlock`) were updated to the new semantics, and the
+    `PawnInvariant` debt invariant now distinguishes the collection's share from the pool's book.
+    The site's loan panel (`web/src/loans.tsx`) reads `debtRealised` and `auctionOpenedAt` for the
+    write-off and refresh actions.
+
+15. **[low] 977167 — a restart every 17 days postponed the write-off indefinitely.** Change
+    (`src/PawnShop.sol`): `auctionOpenedAt[id]` is set by `startAuction` and never moved by a restart;
+    `writeOffAuction` runs its 40-day clock from it. Test: `test_restartDoesNotPostponeTheWriteOff`.
+
+16. **[low] ce743ba5 — `buyAuction` accepted another loan's vault as receiver and stranded the token.**
+    Change (`src/VaultFactory.sol`, `src/PawnShop.sol`): the factory records every vault it creates
+    (`isVault`) and `buyAuction` refuses any vault of this shop as receiver, not only the loan's own.
+    Test: `test_buyAuctionRefusesAnyVaultOfThisShop`.
+
+## Launch review (revision): findings reproduced but left as they are
+
+- **[low] 4bddaf08 — a new release restarts the seven-day clock on the unvested remainder.** Reproduced.
+  Not changed: the effect is delayed recognition only (no value moves), the single-stream shape is what
+  lets a raised mark cancel the unvested remainder (change 10), and per-tranche release checkpoints
+  would be a redesign of the F4 stream rather than a fix.
+- **[low] 06c3b4e3 — the F7 bounty check compares only the borrower address.** Reproduced. Not changed:
+  the check is cosmetic by nature on a permissionless call; the bounty is bounded by
+  `min(0.002 ETH, principal / 100)`, which never exceeds the fee the borrower paid (at least 50 bps of
+  principal), so a borrower cannot net more than they paid in.
+- **[low] 2d4226fc — `repay` reverts while the collection refuses transfers.** Reproduced. Not changed:
+  the borrower's payment is returned by the revert, the condition is the collection's own policy, and a
+  "settled but unreleased" custody state with a later borrower-only retrieval is a new flow for the
+  requester to decide on, not a launch requirement.
+
+## Launch review (revision): documented trust assumptions and records
+
+- **[info] 3a8311cd.** (a) `approveQuestionHash` admits an attester-signed answer immediately, with no
+  48-hour window and no bound on which question it asks; the owner can, in one block, admit a hash and
+  have `pawn()` lend up to the collection's share of `totalAssets()` against one seat. This is the
+  intended cost of change 3 (the oracle's per-request hash leaves no delayed path shorter than the
+  26-hour freshness window). (b) `startAuction`/`restartAuction` need a floor issued within 26 hours; if
+  the IdentityMD oracle stops answering, overdue loans stay `Active`, collateral cannot be sold and
+  lenders can withdraw idle cash only, until a fresh attestation is admitted. Lenders should treat the
+  owner key and oracle liveness as trust assumptions; `QuestionHashApproved` events make (a) visible.
+- **[info] 98d6e779.** `web/deployment.json`, `web/public/imd-deployment.json`, `dist/` and
+  `keeper/config.json` still carry the earlier `evm_project` launch. They are not changed here: the
+  launch reference forbids a worker from inventing addresses, and the deployment handoff writes them
+  from the confirmed contract set (see "Records, verification and the site" below), with the
+  regenerated ABIs in `docs/abi/` and `web/public/abi/` (which now include `debtRealised`,
+  `auctionOpenedAt`, `isVault` and `AllowanceReleaseCancelled`).
+
 ## Audit findings not changed
 
 - **[low] 30e78fa4 — a separately deployed LockDiscount is not the shop's module.** Reproduced: the

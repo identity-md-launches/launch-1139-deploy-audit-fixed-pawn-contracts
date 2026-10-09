@@ -138,7 +138,10 @@ contract AuditFixesTest is PawnTestBase {
         uint256 price = shop.auctionPrice(id);
         uint256 borrowerBefore = shop.claimable(alice);
         shop.buyAuction{value: price}(id, buyer);
-        assertEq(pool.cumulativeRecoveries(), 0.4 ether);
+        // Launch review (1753e7e5): a held token is sold through the settlement path, not as a late recovery.
+        assertEq(pool.totalBorrowed(), 0);
+        assertEq(pool.cumulativeLoss(), 0);
+        assertEq(pool.cumulativeRecoveries(), 0);
         assertEq(shop.claimable(alice) - borrowerBefore, price - 0.4 ether);
         assertEq(nft.ownerOf(1), buyer);
     }
@@ -304,8 +307,18 @@ contract AuditFixesTest is PawnTestBase {
         _auction(id);
         vm.warp(vm.getBlockTimestamp() + 40 days);
         shop.writeOffAuction(id);
+        // Launch review (1753e7e5): while the token is held the reserve is not consumed; the principal is
+        // realised, and the reserve used, once the collateral is gone.
+        assertEq(pool.reserveUsed(id), 0);
+        assertEq(pool.shortfallReserve(), reserveStart);
+        address vault = shop.getLoan(id).vault;
+        nft.seize(1, address(0));
+        shop.writeOffAuction(id);
+        assertTrue(shop.debtRealised(id));
         assertEq(pool.reserveUsed(id), reserveStart);
         assertEq(pool.shortfallReserve(), 0);
+        // The token finds its way back to the vault and is sold as a late recovery.
+        nft.seize(1, vault);
         _floor(1 ether);
         shop.restartAuction(id);
         vm.warp(vm.getBlockTimestamp() + 1);

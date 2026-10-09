@@ -120,6 +120,10 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
     mapping(bytes32 => uint256) public queuedAt;
     mapping(bytes32 => bytes32) public latestChange;
     mapping(uint256 => bool) public writtenOff;
+    /// @notice The written-off loan's principal has been realised in the pool (collateral was gone).
+    mapping(uint256 => bool) public debtRealised;
+    /// @notice When the auction first opened; restarts never move it (launch review 977167).
+    mapping(uint256 => uint256) public auctionOpenedAt;
     /// @notice New loans against a collection are refused until this time (audit F15).
     mapping(address => uint256) public loansDisabledUntil;
     /// @notice Launch audit (high, da7976ab): the oracle's questionHash covers the request's block window, so
@@ -435,6 +439,9 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
         if (msg.value != fee) revert IncorrectPayment();
         // Late extensions buy a complete new term; early extensions append to the existing due date.
         loan.due = Math.max(loan.due, block.timestamp) + loan.savedTerms[termId].duration;
+        // Launch review (medium, 3f291830): a loan made current again carries no overdue mark (F5); the
+        // allowance is released through the same vesting stream a settlement uses.
+        if (lendingPool.auctionLoss(id) != 0) lendingPool.markAuctionLoss(id, loan.principal, loan.principal, true);
         _distributeFee(fee);
         emit Extended(id, termId, fee, loan.due);
     }
@@ -472,6 +479,7 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
         if (!floorFresh(loan.collection)) revert StaleFloor();
         loan.status = Status.Auction;
         loan.auctionStarted = block.timestamp;
+        auctionOpenedAt[id] = block.timestamp;
         loan.auctionFloor = floors[loan.collection].price;
         lendingPool.markAuctionLoss(
             id, loan.principal, auctionPrice(id), CollateralVault(payable(loan.vault)).holdsCollateral()
@@ -491,7 +499,7 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
         if (!floorFresh(loan.collection)) revert StaleFloor();
         loan.auctionStarted = block.timestamp;
         loan.auctionFloor = floors[loan.collection].price;
-        if (!writtenOff[id]) {
+        if (!debtRealised[id]) {
             lendingPool.markAuctionLoss(
                 id, loan.principal, auctionPrice(id), CollateralVault(payable(loan.vault)).holdsCollateral()
             );
@@ -518,31 +526,45 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
     /// @notice Refresh the loss allowance as an auction declines; never releases custody.
     function markAuctionLoss(uint256 id) external nonReentrant {
         uint256 price = auctionPrice(id);
-        if (writtenOff[id]) revert InvalidLoan();
+        if (debtRealised[id]) revert InvalidLoan();
         Loan storage loan = _loans[id];
         lendingPool.markAuctionLoss(id, loan.principal, price, CollateralVault(payable(loan.vault)).holdsCollateral());
     }
 
-    /// @notice After 30 days at the terminal price, remove unrecovered debt and unlock PAWN.
-    /// Collateral stays in its auction; a later buyer still pays the original auction curve.
+    /// @notice After 30 days at the terminal price, remove unrecovered debt from the collection's share
+    /// and unlock PAWN. Collateral stays in its auction; a later buyer still pays the original curve.
+    /// @dev Launch review (medium, 1753e7e5): while the vault still holds a sellable token the pool keeps
+    /// the unrecovered part as an expected-loss allowance instead of realising the whole principal, so a
+    /// later entrant pays for the recovery it would otherwise collect. The principal is realised as a loss
+    /// only once the collateral is gone; this call may then be repeated once to book it.
     function writeOffAuction(uint256 id) external nonReentrant {
         Loan storage loan = _loans[id];
-        if (loan.status != Status.Auction || writtenOff[id]) revert InvalidLoan();
-        if (
-            block.timestamp < loan.auctionStarted + WRITE_OFF_DELAY
-                && CollateralVault(payable(loan.vault)).holdsCollateral()
-        ) revert GracePeriod();
-        writtenOff[id] = true;
-        collectionDebt[loan.collection] -= loan.principal;
-        lendingPool.settleAuction(id, loan.principal);
-        _releaseDiscount(id, loan.module);
-        emit AuctionWrittenOff(id, loan.principal);
+        if (loan.status != Status.Auction || debtRealised[id]) revert InvalidLoan();
+        bool held = CollateralVault(payable(loan.vault)).holdsCollateral();
+        if (writtenOff[id]) {
+            if (held) revert InvalidLoan();
+        } else {
+            // The write-off clock runs from the first start, so a restart every 17 days cannot postpone it.
+            if (block.timestamp < auctionOpenedAt[id] + WRITE_OFF_DELAY && held) revert GracePeriod();
+            writtenOff[id] = true;
+            collectionDebt[loan.collection] -= loan.principal;
+            _releaseDiscount(id, loan.module);
+            emit AuctionWrittenOff(id, loan.principal);
+        }
+        if (held) {
+            lendingPool.markAuctionLoss(id, loan.principal, auctionPrice(id), true);
+        } else {
+            debtRealised[id] = true;
+            lendingPool.settleAuction(id, loan.principal);
+        }
     }
 
     /// @notice msg.value is a price ceiling; any excess becomes the buyer's pull credit.
     function buyAuction(uint256 id, address receiver) external payable nonReentrant {
         Loan storage loan = _loans[id];
-        if (receiver == address(0) || receiver == loan.vault || receiver == loan.collection) {
+        // Audit F14 and launch review ce743ba5: no vault of this shop (a vault can only move its own token)
+        // and never the collection itself.
+        if (receiver == address(0) || vaultFactory.isVault(receiver) || receiver == loan.collection) {
             revert InvalidRecipient();
         }
         uint256 price = auctionPrice(id);
@@ -553,12 +575,14 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
         if (msg.value < price) revert IncorrectPayment();
         loan.status = Status.Sold;
         uint256 recovered = Math.min(price, loan.principal);
-        if (writtenOff[id]) {
+        if (debtRealised[id]) {
             lendingPool.receiveRecovery{value: recovered}(id);
         } else {
-            collectionDebt[loan.collection] -= loan.principal;
+            if (!writtenOff[id]) {
+                collectionDebt[loan.collection] -= loan.principal;
+                _releaseDiscount(id, loan.module);
+            }
             lendingPool.settleAuction{value: recovered}(id, loan.principal);
-            _releaseDiscount(id, loan.module);
         }
         _credit(loan.borrower, price - recovered);
         _credit(msg.sender, msg.value - price);

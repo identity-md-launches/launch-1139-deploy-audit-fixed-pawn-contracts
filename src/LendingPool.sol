@@ -63,6 +63,7 @@ contract LendingPool is ERC4626, Ownable2Step, PullPayments {
     event CapCancelled(uint256 cap);
     event AllowanceReleaseVesting(uint256 indexed loanId, uint256 amount, uint256 totalUnvested);
     event ReserveRestored(uint256 indexed loanId, uint256 amount);
+    event AllowanceReleaseCancelled(uint256 indexed loanId, uint256 amount, uint256 totalUnvested);
 
     constructor(address owner_, address weth_, address shop_)
         ERC20("Pawn Lending Share", "pETH")
@@ -124,9 +125,18 @@ contract LendingPool is ERC4626, Ownable2Step, PullPayments {
     }
 
     function totalAssets() public view override returns (uint256) {
-        // Reserve covers recognised auction impairments before any share value is lost.
+        // Launch review (medium, e5e83677): the unvested release is a deferral of recognition, not an
+        // asset. Idle cash it once stood behind may have been withdrawn and principal marked as lost
+        // since, so it can never push the book below zero.
+        uint256 recognised = _recognisedAssets();
+        return recognised - Math.min(recognised, unvestedRelease());
+    }
+
+    /// @dev Cash and principal less the larger of the reserve and the expected auction loss, before the
+    /// release stream. Reserve covers recognised auction impairments before any share value is lost.
+    function _recognisedAssets() private view returns (uint256) {
         return IERC20(asset()).balanceOf(address(this)) + totalBorrowed
-            - Math.max(shortfallReserve, expectedAuctionLoss) - unvestedDonations() - unvestedRelease();
+            - Math.max(shortfallReserve, expectedAuctionLoss) - unvestedDonations();
     }
 
     function idleAssets() public view returns (uint256) {
@@ -154,8 +164,12 @@ contract LendingPool is ERC4626, Ownable2Step, PullPayments {
         return Math.mulDiv(shares, _entryAssets() + 1, totalSupply() + 10 ** _decimalsOffset(), Math.Rounding.Ceil);
     }
 
+    /// @dev Launch review (medium, 548fab74): an outstanding mark is priced like an unvested release.
+    /// Entries pay for cash and principal net of the reserve only, so a deposit between markOverdue
+    /// and settlement cannot buy the reversal of a mark its holder never bore; it bears the mark if
+    /// it is realised instead. Never below totalAssets(), so an entrant never beats a holder's price.
     function _entryAssets() private view returns (uint256) {
-        return totalAssets() + unvestedRelease();
+        return IERC20(asset()).balanceOf(address(this)) + totalBorrowed - shortfallReserve - unvestedDonations();
     }
 
     function maxWithdraw(address account) public view override returns (uint256) {
@@ -255,23 +269,41 @@ contract LendingPool is ERC4626, Ownable2Step, PullPayments {
         uint256 loss = principal - Math.min(principal, recovery);
         uint256 previous = auctionLoss[id];
         if (loss < previous && !mayDecrease) revert InvalidAmount();
+        uint256 before = _recognisedAssets();
         expectedAuctionLoss = expectedAuctionLoss + loss - previous;
         auctionLoss[id] = loss;
+        // Launch review (high, b79122ba): a lowered mark is the same kind of release as a settlement
+        // and vests the same way; a raised mark first cancels what is still unvested.
+        _reconcileRelease(id, before);
         emit AuctionLossMarked(id, loss);
     }
 
     function settleAuction(uint256 id, uint256 principal) external payable onlyShop nonReentrant {
-        uint256 before = totalAssets();
+        uint256 before = _recognisedAssets();
         expectedAuctionLoss -= auctionLoss[id];
         delete auctionLoss[id];
         reserveUsed[id] += _settle(principal);
         // F4: an allowance larger than the realised loss is recognised over seven days, not at once.
-        uint256 afterSettle = totalAssets();
-        if (afterSettle > before && totalSupply() != 0) {
+        _reconcileRelease(id, before);
+    }
+
+    /// @dev Stream any rise of the recognised book since `before` over VESTING; absorb any fall into
+    /// the unvested remainder first so a loss re-marked after a release is not deducted twice.
+    function _reconcileRelease(uint256 id, uint256 before) private {
+        uint256 afterChange = _recognisedAssets();
+        if (afterChange > before) {
+            if (totalSupply() == 0) return;
             uint256 remaining = unvestedRelease();
-            releaseVestingAmount = remaining + afterSettle - before;
+            releaseVestingAmount = remaining + afterChange - before;
             releaseVestingStart = block.timestamp;
-            emit AllowanceReleaseVesting(id, afterSettle - before, releaseVestingAmount);
+            emit AllowanceReleaseVesting(id, afterChange - before, releaseVestingAmount);
+        } else if (afterChange < before) {
+            uint256 remaining = unvestedRelease();
+            if (remaining == 0) return;
+            uint256 cancelled = Math.min(remaining, before - afterChange);
+            releaseVestingAmount = remaining - cancelled;
+            releaseVestingStart = block.timestamp;
+            emit AllowanceReleaseCancelled(id, cancelled, releaseVestingAmount);
         }
     }
 

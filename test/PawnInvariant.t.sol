@@ -166,13 +166,13 @@ contract PawnInvariantTest is PawnTestBase {
 
     function invariant_poolBookMatchesCashAndDebt() public view {
         uint256 cash = weth.balanceOf(address(pool));
-        assertEq(
-            pool.totalAssets()
-                + (pool.shortfallReserve() > pool.expectedAuctionLoss()
-                        ? pool.shortfallReserve()
-                        : pool.expectedAuctionLoss()) + pool.unvestedDonations() + pool.unvestedRelease(),
-            cash + pool.totalBorrowed()
-        );
+        uint256 recognised = cash + pool.totalBorrowed()
+            - (pool.shortfallReserve() > pool.expectedAuctionLoss()
+                    ? pool.shortfallReserve()
+                    : pool.expectedAuctionLoss()) - pool.unvestedDonations();
+        uint256 release = pool.unvestedRelease();
+        // The unvested release defers recognition but never pushes the book below zero (launch review e5e83677).
+        assertEq(pool.totalAssets(), recognised - (release > recognised ? recognised : release));
         assertEq(pool.idleAssets() + pool.shortfallReserve() + pool.unvestedDonations(), cash);
         assertEq(
             cash,
@@ -184,7 +184,7 @@ contract PawnInvariantTest is PawnTestBase {
                     + handler.ghostReserves()) - (handler.ghostBorrowed() + handler.ghostWithdrawals())
         );
         assertEq(
-            pool.totalAssets(),
+            recognised,
             5 ether + handler.ghostDeposits() + handler.ghostDonations() + pool.cumulativeLoanFees()
                 - handler.ghostWithdrawals() - pool.unvestedDonations() - pool.cumulativeLoss()
                 + pool.cumulativeRecoveries()
@@ -196,12 +196,15 @@ contract PawnInvariantTest is PawnTestBase {
 
     function invariant_debtAndCollateralFollowLoanState() public view {
         uint256 sum;
+        uint256 borrowed;
         uint256 maximumCommitment;
         for (uint256 id = 1; id < shop.nextLoanId(); ++id) {
             PawnShop.Loan memory loan = shop.getLoan(id);
             (address borrower, uint8 tier) = discount.commitments(id);
             if (loan.status == PawnShop.Status.Active || loan.status == PawnShop.Status.Auction) {
                 assertEq(nft.ownerOf(loan.tokenId), loan.vault);
+                // A held written-off loan leaves the collection's share but stays on the pool's book.
+                if (!shop.debtRealised(id)) borrowed += loan.principal;
                 if (shop.writtenOff(id)) {
                     assertEq(borrower, address(0));
                 } else {
@@ -215,7 +218,7 @@ contract PawnInvariantTest is PawnTestBase {
                 assertEq(borrower, address(0));
             }
         }
-        assertEq(sum, pool.totalBorrowed());
+        assertEq(borrowed, pool.totalBorrowed());
         assertEq(sum, shop.collectionDebt(address(nft)));
         assertEq(discount.committed(address(handler)), maximumCommitment);
         assertGe(discount.locked(address(handler)), maximumCommitment);
