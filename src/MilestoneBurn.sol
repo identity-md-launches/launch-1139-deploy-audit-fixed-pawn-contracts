@@ -31,11 +31,11 @@ contract MilestoneBurn is OracleAttestationConsumer, ReentrancyGuard {
     event QuestionHashSet(bytes32 indexed hash);
     event Burned(uint256 amount, uint256 fullyDilutedMarketCap, bytes32 indexed requestId);
 
+    /// @dev Launch rule: the factory rehearses constructors on an empty chain, so this constructor makes no
+    /// call to the shop. The token binding is checked on first use in `burn`, and the signer is read from
+    /// the shop there as well (`syncSigner`), so `signer_` only needs to be the shop's initial attester.
     constructor(address token_, address setter_, address signer_, address shop_) OracleAttestationConsumer(signer_) {
-        if (token_ == address(0) || setter_ == address(0)) revert Unauthorized();
-        if (IPawnShop(shop_).pawnToken() != token_ || IPawnShop(shop_).oracleSigner() != signer_) {
-            revert Unauthorized();
-        }
+        if (token_ == address(0) || setter_ == address(0) || shop_ == address(0)) revert Unauthorized();
         pawnToken = token_;
         questionSetter = setter_;
         pawnShop = shop_;
@@ -47,9 +47,21 @@ contract MilestoneBurn is OracleAttestationConsumer, ReentrancyGuard {
         emit QuestionHashSet(hash);
     }
 
+    /// @notice Launch audit (low, c079051d): the oracle's questionHash is per request, so a hash pinned to a
+    /// request that never reaches the milestone, or whose answer was not burned within the hour, stranded
+    /// the vault's PAWN forever. The setter may re-pin until the burn fires; it still cannot move funds.
+    function replaceQuestionHash(bytes32 hash) external {
+        if (msg.sender != questionSetter || questionHash == bytes32(0) || hash == bytes32(0) || burned) {
+            revert Unauthorized();
+        }
+        questionHash = hash;
+        emit QuestionHashSet(hash);
+    }
+
     function burn(OracleAttestation.Attestation calldata a, bytes calldata signature) external nonReentrant {
         if (burned) revert AlreadyBurned();
         if (questionHash == bytes32(0)) revert NotConfigured();
+        if (IPawnShop(pawnShop).pawnToken() != pawnToken) revert Unauthorized();
         if (
             a.questionHash != questionHash || a.chainId != 1 || a.panelSize < 5 || a.quorum < 4 || a.agreed < a.quorum
                 || a.agreed > a.panelSize || a.issuedAt > block.timestamp

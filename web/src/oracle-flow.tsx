@@ -61,9 +61,21 @@ export function OracleFlow({
       r!.client.getBlock(),
       read(r!, r!.contracts.PawnShop, "oracleSigner"),
       kind === "floor"
-        ? read(r!, r!.contracts.PawnShop, "collections", [
-            s!.collectionAddress,
-          ]).then((x) => x[5])
+        ? Promise.all([
+            read(r!, r!.contracts.PawnShop, "collections", [
+              s!.collectionAddress,
+            ]).then((x) => x[5]),
+            // The owner may admit one request's hash on top of the governed pin (ADAPTATION.md).
+            read(r!, r!.contracts.PawnShop, "approvedQuestionHash", [
+              s!.collectionAddress,
+            ]),
+          ]).then(([governed, approved]) =>
+            approved !== zeroHash &&
+            String(ev.detail?.questionHash).toLowerCase() ===
+              String(approved).toLowerCase()
+              ? approved
+              : governed,
+          )
         : read(r!, consumer, "questionHash"),
     ]);
     return validateEvidence(

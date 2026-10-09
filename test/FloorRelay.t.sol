@@ -71,13 +71,19 @@ contract FloorRelayTest is Test {
         assertTrue(burnVault.consumed(a.requestId));
     }
 
-    function test_realFloorStillNeeds26HourLifetime() public {
+    /// @dev Launch audit 56506f8c: the service's 24-hour floor answer is accepted and fresh until its signed expiry.
+    function test_realFloorWithTwentyFourHourLifetimeIsAccepted() public {
         (OracleAttestation.Attestation memory a, bytes memory signature) = LiveRelayVectors.floor();
         vm.warp(a.issuedAt);
         address collection = shop.IDENTITY_COLLECTION();
         QuestionRotation.rotate(shop, collection, a.questionHash);
-        vm.expectRevert(PawnShop.InvalidAttestation.selector);
         shop.submitFloor(collection, a, abi.encode(a, signature));
+        (uint256 price,, uint64 expiresAt,) = shop.floors(collection);
+        assertEq(price, abi.decode(a.answer, (uint256)));
+        assertEq(expiresAt, a.expiresAt);
+        assertTrue(shop.floorFresh(collection));
+        vm.warp(a.expiresAt + 1);
+        assertFalse(shop.floorFresh(collection));
     }
 
     function test_anotherSignerAndStructMismatchFailBothConsumers() public {

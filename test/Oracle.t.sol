@@ -87,16 +87,18 @@ contract OracleTest is PawnTestBase {
         shop.submitFloor(address(nft), a, sig);
     }
 
-    function test_floorCannotShortenStoredExpiry() public {
+    /// @dev Launch audit 56506f8c: any signed lifetime is accepted; a floor is never fresh past its signed expiry.
+    function test_floorIsNeverFreshPastItsSignedExpiry() public {
         vm.warp(vm.getBlockTimestamp() + 1);
         OracleAttestation.Attestation memory a = _attestation(FLOOR_QUESTION, 1 ether);
         a.expiresAt = uint64(vm.getBlockTimestamp() + 1 hours);
         bytes memory sig = _signature(shop, a);
-        vm.expectRevert(PawnShop.InvalidAttestation.selector);
         shop.submitFloor(address(nft), a, sig);
-        vm.warp(vm.getBlockTimestamp() + 1 hours + 1);
+        (,, uint64 expiresAt,) = shop.floors(address(nft));
+        assertEq(expiresAt, a.expiresAt);
+        vm.warp(vm.getBlockTimestamp() + 1 hours);
         assertTrue(shop.floorFresh(address(nft)));
-        vm.warp(vm.getBlockTimestamp() + 26 hours);
+        vm.warp(vm.getBlockTimestamp() + 1);
         assertFalse(shop.floorFresh(address(nft)));
         vm.expectRevert(PawnShop.StaleFloor.selector);
         shop.pawn(address(nft), 1, 0, 0, type(uint256).max);

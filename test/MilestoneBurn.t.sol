@@ -103,10 +103,77 @@ contract MilestoneBurnTest is PawnTestBase {
         assertEq(token.balanceOf(address(burnVault)), 0);
     }
 
-    function test_deploymentRejectsUnrelatedSignerSource() public {
+    /// @dev Launch rule: constructors make no external calls, so the shop binding is checked on first use.
+    function test_unrelatedSignerIsReplacedAndWrongTokenIsRefusedOnFirstUse() public {
+        MilestoneBurn wrongSigner = new MilestoneBurn(address(token), owner, buyer, address(shop));
+        assertEq(wrongSigner.oracleSigner(), buyer);
+        vm.prank(owner);
+        wrongSigner.setQuestionHashOnce(BURN_QUESTION);
+        token.transfer(address(wrongSigner), 100 ether);
+        OracleAttestation.Attestation memory a = _attestation(BURN_QUESTION, 1_000_000 ether);
+        // burn reads the shop's governed signer, so the stale constructor signer is never used.
+        wrongSigner.burn(a, _signature(wrongSigner, a));
+        assertEq(wrongSigner.oracleSigner(), vm.addr(KEY));
+        assertTrue(wrongSigner.burned());
+
+        MilestoneBurn wrongToken = new MilestoneBurn(address(weth), owner, vm.addr(KEY), address(shop));
+        vm.prank(owner);
+        wrongToken.setQuestionHashOnce(BURN_QUESTION);
+        a = _attestation(BURN_QUESTION, 1_000_000 ether);
+        {
+            bytes memory sig_ = _signature(wrongToken, a);
+            vm.expectRevert(MilestoneBurn.Unauthorized.selector);
+            wrongToken.burn(a, sig_);
+        }
+    }
+
+    function test_constructorNeedsNoLiveShopAndBurnChecksItLater() public {
+        address emptyShop = makeAddr("shop with no code yet");
+        MilestoneBurn early = new MilestoneBurn(address(token), owner, vm.addr(KEY), emptyShop);
+        assertEq(early.pawnShop(), emptyShop);
+        vm.prank(owner);
+        early.setQuestionHashOnce(BURN_QUESTION);
+        OracleAttestation.Attestation memory a = _attestation(BURN_QUESTION, 1_000_000 ether);
+        {
+            bytes memory sig_ = _signature(early, a);
+            vm.expectRevert();
+            early.burn(a, sig_);
+        }
+    }
+
+    function test_setterMayRepinUntilBurned() public {
+        bytes32 second = keccak256("the request that actually reached the milestone");
+        vm.prank(owner);
         vm.expectRevert(MilestoneBurn.Unauthorized.selector);
-        new MilestoneBurn(address(token), owner, buyer, address(shop));
+        burnVault.replaceQuestionHash(second); // nothing pinned yet
+        _configure();
         vm.expectRevert(MilestoneBurn.Unauthorized.selector);
-        new MilestoneBurn(address(weth), owner, vm.addr(KEY), address(shop));
+        burnVault.replaceQuestionHash(second); // not the setter
+        vm.prank(owner);
+        vm.expectRevert(MilestoneBurn.Unauthorized.selector);
+        burnVault.replaceQuestionHash(bytes32(0));
+        token.transfer(address(burnVault), 100 ether);
+        // The first pin went to a request whose answer missed the milestone: the vault is not stranded.
+        OracleAttestation.Attestation memory low = _attestation(BURN_QUESTION, 1_000_000 ether - 1);
+        {
+            bytes memory sig_ = _signature(burnVault, low);
+            vm.expectRevert(MilestoneBurn.MilestoneNotReached.selector);
+            burnVault.burn(low, sig_);
+        }
+        vm.prank(owner);
+        burnVault.replaceQuestionHash(second);
+        assertEq(burnVault.questionHash(), second);
+        OracleAttestation.Attestation memory a = _attestation(BURN_QUESTION, 2_000_000 ether);
+        {
+            bytes memory sig_ = _signature(burnVault, a);
+            vm.expectRevert(MilestoneBurn.InvalidAttestation.selector);
+            burnVault.burn(a, sig_);
+        }
+        a = _attestation(second, 2_000_000 ether);
+        burnVault.burn(a, _signature(burnVault, a));
+        assertEq(token.balanceOf(burnVault.BURN_DESTINATION()), 100 ether);
+        vm.prank(owner);
+        vm.expectRevert(MilestoneBurn.Unauthorized.selector);
+        burnVault.replaceQuestionHash(keccak256("after the burn"));
     }
 }

@@ -423,6 +423,19 @@
   },
   {
     "type": "function",
+    "name": "replaceQuestionHash",
+    "inputs": [
+      {
+        "name": "hash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setQuestionHashOnce",
     "inputs": [
       {

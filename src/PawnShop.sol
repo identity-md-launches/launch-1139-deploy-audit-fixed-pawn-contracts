@@ -122,6 +122,11 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
     mapping(uint256 => bool) public writtenOff;
     /// @notice New loans against a collection are refused until this time (audit F15).
     mapping(address => uint256) public loansDisabledUntil;
+    /// @notice Launch audit (high, da7976ab): the oracle's questionHash covers the request's block window, so
+    /// every fresh floor request carries a new hash and the timelocked pin alone can never admit a live
+    /// price. The owner may admit one request's hash immediately, on top of the governed pin. Cleared when
+    /// the governed question rotates.
+    mapping(address => bytes32) public approvedQuestionHash;
 
     event PauseChanged(bool paused);
     event ChangeQueued(bytes32 indexed operation, uint256 executableAt);
@@ -130,6 +135,7 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
     event CollectionSet(address indexed collection, Collection config);
     event CollectionDisabledNow(address indexed collection);
     event QuestionHashSet(address indexed collection, bytes32 questionHash);
+    event QuestionHashApproved(address indexed collection, bytes32 questionHash);
     event FeeRecipientSet(address indexed recipient);
     event DiscountModuleSet(address indexed module);
     event FloorSubmitted(address indexed collection, uint256 price, uint64 issuedAt, uint64 expiresAt);
@@ -247,6 +253,7 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
             // Keep the last price for default auctions, but require a newly signed floor for lending.
             floors[collection].expiresAt = 0;
             loansDisabledUntil[collection] = block.timestamp + QUESTION_COOLDOWN;
+            delete approvedQuestionHash[collection];
         }
         collections[collection] = config;
         emit CollectionSet(collection, config);
@@ -268,6 +275,16 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
         c.questionHash = hash;
         loansDisabledUntil[collection] = block.timestamp + QUESTION_COOLDOWN;
         emit QuestionHashSet(collection, hash);
+    }
+
+    /// @notice Admit the hash of one specific floor request for a collection whose question is already
+    /// governed. The owner vouches that the request asks the configured question; the governed pin and
+    /// its timelock are untouched, and every other submitFloor rule (consensus, age, window, signature,
+    /// single use of the request id) still applies to the admitted answer.
+    function approveQuestionHash(address collection, bytes32 hash) external onlyOwner {
+        if (collections[collection].questionHash == bytes32(0) || hash == bytes32(0)) revert InvalidConfiguration();
+        approvedQuestionHash[collection] = hash;
+        emit QuestionHashApproved(collection, hash);
     }
 
     function queueAttester(address signer) external onlyOwner {
@@ -317,16 +334,19 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
         bytes32 hash = collections[collection].questionHash;
         if (hash == bytes32(0)) revert NotConfigured();
         if (
-            a.questionHash != hash || a.chainId != 1 || a.panelSize < 5 || a.quorum < 4 || a.agreed < a.quorum
-                || a.agreed > a.panelSize || a.issuedAt > block.timestamp
-                || block.timestamp - a.issuedAt > FLOOR_MAX_AGE || a.issuedAt <= floors[collection].issuedAt
-                || a.fromBlock > a.toBlock || uint256(a.toBlock) + MAX_WINDOW_AGE_BLOCKS < block.number
+            (a.questionHash != hash && a.questionHash != approvedQuestionHash[collection]) || a.chainId != 1
+                || a.panelSize < 5 || a.quorum < 4 || a.agreed < a.quorum || a.agreed > a.panelSize
+                || a.issuedAt > block.timestamp || block.timestamp - a.issuedAt > FLOOR_MAX_AGE
+                || a.issuedAt <= floors[collection].issuedAt || a.fromBlock > a.toBlock
+                || uint256(a.toBlock) + MAX_WINDOW_AGE_BLOCKS < block.number
         ) revert InvalidAttestation();
         _verifyAttestation(a, signature);
         uint256 price = decodeUint256(a);
         if (price == 0 || a.answer.length != 32) revert InvalidAttestation();
-        // Every price must cover the full freshness window; never extend a signed expiry.
-        if (a.expiresAt < uint256(a.issuedAt) + FLOOR_MAX_AGE) revert InvalidAttestation();
+        // Launch audit (low, 56506f8c): the service issues floors with a 24-hour validity, so the former
+        // 26-hour minimum lifetime refused every real answer. floorFresh already bounds freshness by
+        // min(FLOOR_MAX_AGE, signed expiry); a signed expiry is never extended.
+        if (a.expiresAt <= a.issuedAt) revert InvalidAttestation();
         _consume(a.requestId);
         Floor storage f = floors[collection];
         f.price = price;
@@ -465,7 +485,9 @@ contract PawnShop is Ownable2Step, PullPayments, OracleAttestationConsumer {
     function restartAuction(uint256 id) external nonReentrant {
         Loan storage loan = _loans[id];
         if (loan.status != Status.Auction) revert NotAuctioning();
-        if (!writtenOff[id] && block.timestamp < loan.auctionStarted + RESTART_AFTER) revert NotRestartable();
+        // Launch audit (medium, bf57e268): written-off auctions also wait RESTART_AFTER between restarts, so a
+        // free restart in every block can no longer reset the price curve and block every purchase.
+        if (block.timestamp < loan.auctionStarted + RESTART_AFTER) revert NotRestartable();
         if (!floorFresh(loan.collection)) revert StaleFloor();
         loan.auctionStarted = block.timestamp;
         loan.auctionFloor = floors[loan.collection].price;

@@ -139,7 +139,23 @@ contract LendingPool is ERC4626, Ownable2Step, PullPayments {
     }
 
     function maxMint(address receiver) public view override returns (uint256) {
-        return convertToShares(maxDeposit(receiver));
+        return previewDeposit(maxDeposit(receiver));
+    }
+
+    /// @dev Launch audit (medium, 0ac9b173): a released loss allowance vests to whoever holds shares, so a
+    /// deposit made at the depressed price during the stream captured most of a release that belongs to
+    /// the lenders who bore the loss. Entries are priced as if the release had already vested; redemptions
+    /// keep the vesting price, so the unvested part can neither be bought nor withdrawn early.
+    function previewDeposit(uint256 assets) public view override returns (uint256) {
+        return Math.mulDiv(assets, totalSupply() + 10 ** _decimalsOffset(), _entryAssets() + 1, Math.Rounding.Floor);
+    }
+
+    function previewMint(uint256 shares) public view override returns (uint256) {
+        return Math.mulDiv(shares, _entryAssets() + 1, totalSupply() + 10 ** _decimalsOffset(), Math.Rounding.Ceil);
+    }
+
+    function _entryAssets() private view returns (uint256) {
+        return totalAssets() + unvestedRelease();
     }
 
     function maxWithdraw(address account) public view override returns (uint256) {

@@ -167,7 +167,7 @@ export async function validateEvidence(
     a.questionHash.toLowerCase() !== pinned.toLowerCase()
   )
     throw Error(
-      "This question hash differs from the configured hash. The owner must review the oracle recipe and queue a collection change; the burn hash cannot be changed.",
+      "This question hash differs from the configured hash. The owner must approve this request's hash with approveQuestionHash (floor) or re-pin with replaceQuestionHash (burn) first.",
     );
   if (
     a.chainId !== 1n ||
@@ -186,10 +186,9 @@ export async function validateEvidence(
     a.expiresAt < BigInt(now)
   )
     throw Error("Attestation is stale, expired or issued in the future.");
-  if (kind === "floor" && a.expiresAt < a.issuedAt + 93600n)
-    throw Error(
-      "Floor attestation must remain valid for at least 26 hours after issue.",
-    );
+  // The contract accepts any signed lifetime and is never fresh past the signed expiry.
+  if (kind === "floor" && a.expiresAt <= a.issuedAt)
+    throw Error("Floor attestation must expire after it was issued.");
   const digest = hashTypedData({
     domain: {
       name: "IdentityMD Oracle",

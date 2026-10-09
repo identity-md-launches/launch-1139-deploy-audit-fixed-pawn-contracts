@@ -14,9 +14,15 @@ New loans start paused. Setup therefore shows the preset hash and the attester a
 earlier **Switch attester to FloorRelay** step is removed. The remaining owner steps are:
 
 1. Post a fresh floor using the request-id flow below, buying the answer with no consumer.
-2. Set MilestoneBurn's question once with `setQuestionHashOnce`. The question must use a
+   The oracle's `questionHash` covers the request's block window, so each new request has a
+   new hash. Before posting, call `approveQuestionHash(collection, hash)` with that request's
+   hash (owner only, immediate, no loan cooldown); the governed pin and its 48-hour rotation
+   stay as they are. Posting the hash of a request the owner has not approved is rejected.
+2. Set MilestoneBurn's question with `setQuestionHashOnce`. The question must use a
    **24-hour time-weighted price**, and its answers are accepted for **at most 1 hour** after
-   `issuedAt`.
+   `issuedAt`. Because the hash is per request, set it only after seeing an answer at or above
+   the milestone; if that answer is missed, the setter can re-pin with `replaceQuestionHash`
+   until the burn has fired.
 3. Fund the burn vault, then unpause new loans.
 
 Any later question-hash write to a collection (`setQuestionHashOnce`, or an executed queued
@@ -50,7 +56,8 @@ with a copy button. The site only reads the public API's
 For the relay, buy with **no consumer**, domain `IdentityMD Oracle`, version
 `2`, chain 1, verifying contract zero. Request a uint256 with public panel
 sources, at least five members, quorum at least four and tolerance at most
-500 bps. Floor answers must have **validForSeconds >= 93600** (26 hours).
+500 bps. Any `validForSeconds` is accepted; the floor is fresh for the shorter of 26 hours
+and the signed lifetime, so a 24-hour answer needs a daily refresh.
 The floor question is:
 
 > What is the current floor price, in wei, of the identity.md NFT collection at 0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D on Ethereum mainnet, defined as the lowest active listing on OpenSea or Blur at the time of answering? Answer as a uint256 in wei.

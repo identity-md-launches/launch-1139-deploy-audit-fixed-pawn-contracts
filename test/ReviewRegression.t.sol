@@ -219,21 +219,25 @@ contract ReviewRegressionTest is PawnTestBase {
         shop.executeCollection(address(nft), c);
     }
 
-    function test_shortExpiryCannotReplaceValidFloor() public {
+    /// @dev Launch audit 56506f8c: a short-lived newer answer is accepted and its signed expiry is never extended.
+    function test_shortExpiryFloorStopsLendingAtItsSignedExpiry() public {
         uint256 id = _pawn(1, 1);
-        (,, uint64 expiry,) = shop.floors(address(nft));
         vm.warp(vm.getBlockTimestamp() + 1);
         OracleAttestation.Attestation memory a = _attestation(FLOOR_QUESTION, 1 ether);
         a.expiresAt = a.issuedAt + 60;
         bytes memory sig = _signature(shop, a);
-        vm.expectRevert(PawnShop.InvalidAttestation.selector);
         shop.submitFloor(address(nft), a, sig);
-        vm.warp(vm.getBlockTimestamp() + 61);
+        (,, uint64 stored,) = shop.floors(address(nft));
+        assertEq(stored, a.expiresAt);
+        vm.warp(vm.getBlockTimestamp() + 60);
         assertTrue(shop.floorFresh(address(nft)));
         vm.prank(alice);
         shop.extend{value: 0.004 ether}(id, 1);
-        (,, uint64 unchanged,) = shop.floors(address(nft));
-        assertEq(unchanged, expiry);
+        vm.warp(vm.getBlockTimestamp() + 1);
+        assertFalse(shop.floorFresh(address(nft)));
+        vm.prank(alice);
+        vm.expectRevert(PawnShop.StaleFloor.selector);
+        shop.extend{value: 0.004 ether}(id, 1);
     }
 
     function test_feeSandwichHasNoImmediateGainAndFeeVests() public {
