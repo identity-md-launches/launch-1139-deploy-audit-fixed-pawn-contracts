@@ -13,6 +13,18 @@ The prior LendingPool rounding finding has been fixed in the accepted source. Th
 
 This revision also updates the two remaining MilestoneBurn fixtures for its fourth constructor argument. The token custody handler supplies a real locally deployed PawnShop with the matching token and signer. Existing failure paths and random-call campaigns remain enabled.
 
+## Failure paths, dependency stand-ins and arithmetic properties (later contribution)
+
+| Suite | Properties exercised |
+| --- | --- |
+| `FailurePaths.t.sol` | Every refused loan-state transition (repaid, auctioned, sold, unknown ids), the exact grace boundary, a 100% share cap filled to the wei by ten loans with the eleventh refused before any vault exists, inclusive 26-hour floor freshness and submitFloor age/time limits, bounty-reserve shortfall, every governance input guard and timelock-less execution, collection-without-code and foreign-module refusal at execution, LendingPool caps/allowances/access/two-step ownership, CollateralVault initialization and ERC-721 receiver guards, borrower-only actions and worker-authorization input limits (inclusive 256-byte origin, inclusive expiry), LockDiscount guards and tier thresholds one wei either side, MilestoneBurn constructor, setup and burn guards including the exact milestone. |
+| `ExternalDependencies.t.sol` | A WETH9-faithful stand-in whose `withdraw` pays with `transfer` (2300-gas stipend) drives native withdrawal, borrow, redemption and settlement; the pool's `receive` is also called with exactly the stipend. Stray ETH into pool or shop is refused. A collection that refuses `transferFrom` blocks repayment until it resumes (reported as a low finding, not asserted as correct). |
+| `PropertyFuzz.t.sol` | 1,000-run stateless properties: auction curve endpoints, continuous slope join, terminal half price and round-up-in-favour-of-the-pool for any floor and elapsed time; donation streams bounded, monotone and complete in seven days with every wei vested or unvested; entry during a release stream never gains on immediate exit and never dilutes existing lenders; locked tokens equal custody with monotone tiers and exact commitment pinning. |
+
+Known findings that these tests document rather than assert as correct are in `.imd-findings.json` at the repository root: repay blocked by a transfer-refusing collection (low), a different loan's vault accepted as auction receiver with the token then stranded (low), the exact-transfer assumption on the external PAWN token (owed live check), launch-record consistency for the spare LockDiscount and MilestoneBurn's four constructor arguments, and the rise-only deposit cap. Live checks still owed and not runnable here: WETH9 and the identity.md seat collection on a mainnet fork, the real token's transfer semantics, and the live attester through FloorRelay.
+
+Local validation of this contribution: `forge test` passed 159 tests across 25 suites (the four invariant campaigns included) with no failures or skips.
+
 Run `forge build` and `forge test`. No extra dependencies, environment variables, RPC access or `vm.setEnv` are required. During this contribution, build artifacts and logs were directed into `test/scratch/` to keep all writes in the assignment's scope; those files are not part of the deliverable.
 
 Local revision validation: `forge build` passed; `forge test` passed 92 tests across 17 suites, with no failures or skips. The four invariant campaigns completed 69,632 random handler calls with no unexpected reverts. These results are local checks, not an independent review or deployment approval.
