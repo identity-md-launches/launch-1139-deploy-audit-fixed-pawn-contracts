@@ -1,0 +1,34 @@
+{
+  "siteName": "pawn.site.identitymd.eth",
+  "exportDirectory": "dist",
+  "operation": "update-existing-name",
+  "command": "imd site publish dist --name pawn",
+  "exitCode": 1,
+  "publicationStatus": "blocked-unconfigured-publisher",
+  "serviceResponse": "not configured \u2014 run: imd pair --server <url>",
+  "newContentUri": null,
+  "liveHostedSetupConfirmed": false,
+  "localExportWithLiveMainnetSetupConfirmed": true,
+  "requiredOperatorAction": "Publish the final dist export on an already authorized IdentityMD host with the existing name pawn, then verify its hosted Setup contract list and asset hashes.",
+  "gatewayChecks": [
+    {
+      "url": "https://pawn.site.identitymd.eth.limo/",
+      "curlExitCode": 35,
+      "httpStatus": null,
+      "error": "TLS connect error: tlsv1 alert internal error"
+    },
+    {
+      "url": "https://pawn.site.identitymd.eth.link/imd-deployment.json",
+      "curlExitCode": 35,
+      "httpStatus": null,
+      "error": "TLS connect error: tlsv1 alert internal error"
+    }
+  ],
+  "webToolCheck": "Both public gateway homepages were also inaccessible through the web tool.",
+  "credentials": "No credentials read, generated, copied or requested. No wallet signing or on-chain broadcast.",
+  "exportInventory": "dist/imd-deployment.json",
+  "checkedAt": "2026-10-09T17:55:41.027180+00:00",
+  "indexSHA256": "21fbd83894e0ff69698d02fce2cf34198e135fe1b1bf05137650ebb281f16147",
+  "manifestSHA256": "4b24b575bd2b148352121bbc2a896bef31dab1ef4f33dbec39649db214e3da32",
+  "exportFileBytes": 1016879
+}

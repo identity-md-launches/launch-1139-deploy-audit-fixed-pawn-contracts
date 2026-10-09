@@ -271,7 +271,8 @@ export default function App() {
                 irreversible auction. A seat remains subject to its collection’s
                 rules, including revocation or burning. Worker authorization and
                 reward calls must satisfy the vault restrictions. Oracle values
-                can be stale or incorrect.
+                can be stale or incorrect. Starting or restarting an auction
+                requires a fresh floor answer.
               </p>
             </details>
             <details>
@@ -289,9 +290,11 @@ export default function App() {
                 The owner can pause new loans and queue term, collection,
                 signer, fee-recipient and module changes. Lender-affecting
                 changes wait 48 hours; the deposit cap can only rise. The owner
-                cannot directly withdraw collateral, pool ETH, reserves, locked
-                PAWN or burn-vault tokens. The signed oracle and collection
-                remain trust dependencies.
+                admits each new floor request’s hash immediately, without a
+                timelock, and vouches that it asks the governed question. The
+                owner cannot directly withdraw collateral, pool ETH, reserves,
+                locked PAWN or burn-vault tokens. The signed oracle and
+                collection remain trust dependencies.
               </p>
             </details>
             <details>
@@ -301,7 +304,10 @@ export default function App() {
                 Protocol fees fill the 0.2 ETH bounty target, then a reserve
                 target of 5% of pool assets, then credit the fee recipient.
                 Bounties are paid only when funded. Burn-vault deposits cannot
-                be withdrawn and its burn can happen only once.
+                be withdrawn and its burn can happen only once. Burning requires
+                an unexpired market-cap answer under 1 hour old, based on PAWN’s
+                24-hour time-weighted average price. The setter must pin the
+                qualifying answer before anyone can burn.
               </p>
             </details>
           </div>
@@ -313,9 +319,11 @@ export default function App() {
             this page.
           </p>
           <div className="contract-links">
-            {r?.deployment.contracts.map((c) => (
-              <AddressLink key={c.name} value={c.address} label={c.name} />
-            ))}
+            {r?.deployment.contracts
+              .filter((c) => !["LendingPool", "LockDiscount"].includes(c.name))
+              .map((c) => (
+                <AddressLink key={c.name} value={c.address} label={c.name} />
+              ))}
             {s && (
               <>
                 <AddressLink

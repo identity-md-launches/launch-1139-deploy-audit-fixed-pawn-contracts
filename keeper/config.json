@@ -1,9 +1,13 @@
 {
   "rpcUrl": "https://ethereum-rpc.publicnode.com",
   "addresses": {
-    "PawnShop": "0x0cc05d3b2879e8dfd18e987d1a50008506cc3756",
-    "MilestoneBurn": "0xb0316e0090501b7048e2876d90bb0471a5d7b6fb",
-    "LaunchToken": "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478"
+    "LaunchToken": "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
+    "FloorRelay": "0x1ff0fb56f9a6c5c5c8201906d487ec4d8f5afc50",
+    "PawnShop": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+    "MilestoneBurn": "0x45098bc496b3fdc870f89b8785047fb0e19ee99a",
+    "LendingPool": "0xe51a10d7b6978d153ad5075818c22e6ddfe15160",
+    "LockDiscount": "0x2546b64664146b1efc4fe66284386961fa25d52d",
+    "VaultFactory": "0xa7820e9e40630f5c3edffd5868f5e6e6f886681b"
   },
   "floorRequestIds": [],
   "marketCapRequestIds": [],

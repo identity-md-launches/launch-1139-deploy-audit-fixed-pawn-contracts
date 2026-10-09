@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-10-09T17:52:26.262Z",
+  "browser": "141.0.7390.37",
+  "mode": "Local production dist at /preview/, real public mainnet RPC reads. A read-only wallet adapter exposes the verified public owner address for Setup; all signing methods throw. This is not hosted-site publication.",
+  "consoleErrors": [],
+  "failedResources": [],
+  "screenshots": [
+    "docs/frontend/relaunch/live-mainnet-contracts.png"
+  ],
+  "viewports": [
+    {
+      "width": 320,
+      "noOverflow": true
+    },
+    {
+      "width": 390,
+      "noOverflow": true
+    },
+    {
+      "width": 800,
+      "noOverflow": true
+    },
+    {
+      "width": 1440,
+      "noOverflow": true
+    }
+  ],
+  "initialHealth": "Contract reads verified · block 26,156,468\nRefresh state",
+  "tradingFeeProvenance": "Original token launch receipt, factory position and claimFees eth_call verified; no transaction sent",
+  "setupContracts": "LaunchToken ↗\nCopy\n0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478\nFloorRelay ↗\nCopy\n0x1ff0fb56f9a6c5c5c8201906d487ec4d8f5afc50\nPawnShop ↗\nCopy\n0xf0d9300d7d891bc842da540cc4ddef050da9bcd4\nMilestoneBurn ↗\nCopy\n0x45098bc496b3fdc870f89b8785047fb0e19ee99a\nLendingPool ↗\nCopy\n0xE51a10d7B6978d153aD5075818c22E6DdFE15160\nLockDiscount ↗\nCopy\n0x2546B64664146B1efc4fE66284386961fA25d52d\nVaultFactory ↗\nCopy\n0xA7820e9E40630F5C3edffD5868F5E6e6f886681B\nPoolInitializationGuard ↗\nCopy\n0x784ff9a3ac5d88a30bfff6f7f2a270161fbe6000\nLaunch factory ↗\nCopy\n0xff03410d0fe5fa8f7f59f743de35e333d9857120\nMerkleDistributor ↗\nCopy\n0x4F026DDbAEe3360B8DDfdcb750511081a01e5B68",
+  "liveSetupPawnShopConfirmedLocally": true,
+  "result": "passed"
+}

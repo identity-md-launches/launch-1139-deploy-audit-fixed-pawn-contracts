@@ -1,0 +1,24 @@
+
+> pawn-frontend@1.0.0 build
+> node scripts/prepare.mjs && vite build && node scripts/manifest.mjs
+
+LaunchToken: 38880b8e56d42ce900f744a7908c7139632a49f1c3f33385c64ceaed29d37bee handoff verified
+PawnShop: 0990c160149ec460595c077081c3b8e8f893b0c0b05646c9525e84c5528bbaf9 handoff verified
+MilestoneBurn: 9d80884c65cdea030e631d6f2fd725179d47d55a1fc6561d3800cfd90bc9a893 handoff verified
+LendingPool: 3fdeab41a8974b4a00a24e2f43b1b0add6ff821bad49a9726d8d0e63ddaa73a2 handoff verified
+LockDiscount: 66d0a871bf5ed26330b07e063ed358029222838c5b7209e053bccef75624f367 handoff verified
+CollateralVault: 7d48c163bcf8880845f94ae8fb3e89c8d2845d741c10b61ba68cef364ae91f71 pinned-source verified
+FloorRelay: ba3f8fbbd0373a2d5036be211c3ac23bafdafa9be2dceb998217acb2947a4406 handoff verified
+VaultFactory: a9a8034f6f6013c0be2627ee7952a5184d135880f8f23dd1a2534d169e03c065 handoff verified
+vite v7.1.12 building for production...
+transforming...
+✓ 440 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                           0.88 kB │ gzip:   0.50 kB
+../dist/assets/VT323-Regular-DICElq-Y.ttf  153.12 kB
+../dist/assets/index-BE5mvMs3.css           15.67 kB │ gzip:   4.22 kB
+../dist/assets/ccip-Bz0MOIwd.js              2.61 kB │ gzip:   1.23 kB
+../dist/assets/index-CUvd884l.js           557.92 kB │ gzip: 173.72 kB
+✓ built in 2.98s
+Export verified: 16 assets, 1011119 bytes; exact handoff, poolKey, network, ABI hashes and every SHA-256 match.

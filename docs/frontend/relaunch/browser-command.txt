@@ -1,0 +1,8 @@
+PASS Setup lists the new deployments; owner explicitly approves a floor hash then posts with no automatic transaction
+PASS Disconnected visitor can fetch a floor and sees its hash while waiting for owner approval
+PASS An approved floor skips approval; owner approval revoked before review prevents posting
+PASS Below $1M shows the signed value and no pin or burn; tampered and stale answers are rejected
+PASS At exactly $1M the setter pins once, then Burn becomes available and uses the verified evidence
+PASS Immutable setter can re-pin from the public Burn section even when not the PawnShop owner
+PASS Non-setter waits for pin; countdown respects earlier signed expiry and disables an open review
+PASS Responsive Setup, keyboard review, reduced motion, risk disclosures and automated accessibility

@@ -39,6 +39,19 @@
   },
   {
     "type": "function",
+    "name": "EXECUTION_WINDOW",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "VESTING",
     "inputs": [],
     "outputs": [
@@ -173,6 +186,13 @@
         "internalType": "uint256"
       }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cancelDepositCap",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -473,6 +493,11 @@
         "name": "recovery",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "mayDecrease",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
@@ -755,7 +780,13 @@
   {
     "type": "function",
     "name": "receiveRecovery",
-    "inputs": [],
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [],
     "stateMutability": "payable"
   },
@@ -819,9 +850,54 @@
   },
   {
     "type": "function",
+    "name": "releaseVestingAmount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "releaseVestingStart",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "renounceOwnership",
     "inputs": [],
     "outputs": [],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "reserveUsed",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "view"
   },
   {
@@ -1014,6 +1090,19 @@
   },
   {
     "type": "function",
+    "name": "unvestedRelease",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "vestingStartIndex",
     "inputs": [],
     "outputs": [
@@ -1085,6 +1174,56 @@
   },
   {
     "type": "event",
+    "name": "AllowanceReleaseCancelled",
+    "inputs": [
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalUnvested",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AllowanceReleaseVesting",
+    "inputs": [
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalUnvested",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Approval",
     "inputs": [
       {
@@ -1133,6 +1272,19 @@
     "inputs": [
       {
         "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CapCancelled",
+    "inputs": [
+      {
+        "name": "cap",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1353,6 +1505,25 @@
     "type": "event",
     "name": "ReserveAdded",
     "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ReserveRestored",
+    "inputs": [
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
       {
         "name": "amount",
         "type": "uint256",
@@ -1711,6 +1882,11 @@
   {
     "type": "error",
     "name": "TimelockPending",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WindowExpired",
     "inputs": []
   }
 ]

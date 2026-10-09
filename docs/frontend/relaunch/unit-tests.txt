@@ -1,0 +1,140 @@
+
+> pawn-frontend@1.0.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: pinned implementation ABIs match canonical handoff hashes
+ok 1 - pinned implementation ABIs match canonical handoff hashes
+  ---
+  duration_ms: 28.263195
+  type: 'test'
+  ...
+# Subtest: amount validation rejects unsafe values and preserves exact token units
+ok 2 - amount validation rejects unsafe values and preserves exact token units
+  ---
+  duration_ms: 0.939751
+  type: 'test'
+  ...
+# Subtest: fee rounding favors the pool at every tier
+ok 3 - fee rounding favors the pool at every tier
+  ---
+  duration_ms: 0.321706
+  type: 'test'
+  ...
+# Subtest: slippage has bounded basis-point precision
+ok 4 - slippage has bounded basis-point precision
+  ---
+  duration_ms: 0.450935
+  type: 'test'
+  ...
+# Subtest: Uniswap action encoding preserves pool key and amounts (standard)
+ok 5 - Uniswap action encoding preserves pool key and amounts (standard)
+  ---
+  duration_ms: 5.497825
+  type: 'test'
+  ...
+# Subtest: Uniswap action encoding preserves pool key and amounts (extended)
+ok 6 - Uniswap action encoding preserves pool key and amounts (extended)
+  ---
+  duration_ms: 1.607517
+  type: 'test'
+  ...
+# Subtest: unknown chain offers exact add-chain parameters then retries switch
+ok 7 - unknown chain offers exact add-chain parameters then retries switch
+  ---
+  duration_ms: 0.385155
+  type: 'test'
+  ...
+# Subtest: wallet rejection never adds a chain
+ok 8 - wallet rejection never adds a chain
+  ---
+  duration_ms: 0.730535
+  type: 'test'
+  ...
+# Subtest: oracle and pairing parsers preserve large integers and reject malformed input
+ok 9 - oracle and pairing parsers preserve large integers and reject malformed input
+  ---
+  duration_ms: 0.725657
+  type: 'test'
+  ...
+# Subtest: asset paths cannot leave the static export
+ok 10 - asset paths cannot leave the static export
+  ---
+  duration_ms: 0.528657
+  type: 'test'
+  ...
+# Subtest: 24-hour TWAP question is exact; a valid unpinned answer can be inspected before admission
+ok 11 - 24-hour TWAP question is exact; a valid unpinned answer can be inspected before admission
+  ---
+  duration_ms: 23.055015
+  type: 'test'
+  ...
+# Subtest: burn accepts the contract's exact one-hour boundary and rejects older/future answers
+ok 12 - burn accepts the contract's exact one-hour boundary and rejects older/future answers
+  ---
+  duration_ms: 11.317654
+  type: 'test'
+  ...
+# Subtest: earlier signed expiry wins; below-milestone values retain exact uint256 precision
+ok 13 - earlier signed expiry wins; below-milestone values retain exact uint256 precision
+  ---
+  duration_ms: 11.552153
+  type: 'test'
+  ...
+# Subtest: tampered answers never become approvable evidence
+ok 14 - tampered answers never become approvable evidence
+  ---
+  duration_ms: 12.119828
+  type: 'test'
+  ...
+# Subtest: site packs the exact golden bytes consumed by Solidity and both consumer verifiers
+ok 15 - site packs the exact golden bytes consumed by Solidity and both consumer verifiers
+  ---
+  duration_ms: 52.112571
+  type: 'test'
+  ...
+# Subtest: real explorer floor accepts signed 24-hour lifetime without extending expiry
+ok 16 - real explorer floor accepts signed 24-hour lifetime without extending expiry
+  ---
+  duration_ms: 6.317929
+  type: 'test'
+  ...
+# Subtest: relay mode rejects a forged attester and a different question hash
+ok 17 - relay mode rejects a forged attester and a different question hash
+  ---
+  duration_ms: 11.071302
+  type: 'test'
+  ...
+# Subtest: signer discovery rejects unknown contracts; EOA remains in direct mode
+ok 18 - signer discovery rejects unknown contracts; EOA remains in direct mode
+  ---
+  duration_ms: 0.445999
+  type: 'test'
+  ...
+# Subtest: request-id flow makes only two public GET requests and rejects invalid ids
+ok 19 - request-id flow makes only two public GET requests and rejects invalid ids
+  ---
+  duration_ms: 20.949325
+  type: 'test'
+  ...
+# Subtest: discover actual factory and distributor from original launch receipt; return pending trading fees
+ok 20 - discover actual factory and distributor from original launch receipt; return pending trading fees
+  ---
+  duration_ms: 4.45474
+  type: 'test'
+  ...
+# Subtest: refuse wrong receipt, wrong pool and missing child bindings before enabling trading claims
+ok 21 - refuse wrong receipt, wrong pool and missing child bindings before enabling trading claims
+  ---
+  duration_ms: 1.281871
+  type: 'test'
+  ...
+1..21
+# tests 21
+# suites 0
+# pass 21
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1432.654208

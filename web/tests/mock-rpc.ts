@@ -21,7 +21,7 @@ const json = (p: string) =>
 export const manifest = json("../../dist/imd-deployment.json");
 const live = json("../../docs/frontend/live-read.json");
 export const addresses = Object.fromEntries(
-  live.contracts.map((c: any) => [c.name, c.address.toLowerCase()]),
+  manifest.contracts.map((c: any) => [c.name, c.address.toLowerCase()]),
 );
 export const owner = live.state.owner;
 export const collection = live.state.collection;
@@ -132,6 +132,17 @@ export class World {
     if (fn === "pawnToken") return addresses.LaunchToken;
     if (fn === "lendingPool") return addresses.LendingPool;
     if (fn === "discountModule") return addresses.LockDiscount;
+    if (fn === "vaultFactory") return addresses.VaultFactory;
+    if (fn === "IDENTITY_QUESTION_HASH") return this.floorHash;
+    if (fn === "approvedQuestionHash") return "0x" + "00".repeat(32);
+    if (
+      [
+        "protocolFeesToRecipient",
+        "protocolFeesToReserves",
+        "unvestedRelease",
+      ].includes(fn)
+    )
+      return 0n;
     if (fn === "IDENTITY_COLLECTION" || fn === "collection") return collection;
     if (
       fn === "owner" ||
@@ -247,26 +258,30 @@ export class World {
       else if (method === "eth_blockNumber")
         result = "0x" + this.block.toString(16);
       else if (method === "eth_getCode")
-        result = this.noCode || params[0].toLowerCase() === live.state.oracleSigner.toLowerCase() ? "0x" : "0x60016000";
+        result =
+          this.noCode ||
+          params[0].toLowerCase() === live.state.oracleSigner.toLowerCase()
+            ? "0x"
+            : "0x60016000";
       else if (method === "eth_getBalance")
         result = "0x" + parseEther("20").toString(16);
       else if (method === "eth_getTransactionReceipt")
         result = {
-                transactionHash: hash,
-                transactionIndex: "0x0",
-                blockHash: "0x" + "cd".repeat(32),
-                blockNumber: "0x" + this.block.toString(16),
-                from: owner,
-                to: addresses.PawnShop,
-                cumulativeGasUsed: "0x5208",
-                gasUsed: "0x5208",
-                contractAddress: null,
-                logs: [],
-                logsBloom: "0x" + "00".repeat(256),
-                status: "0x1",
-                effectiveGasPrice: "0x1",
-                type: "0x2",
-              };
+          transactionHash: hash,
+          transactionIndex: "0x0",
+          blockHash: "0x" + "cd".repeat(32),
+          blockNumber: "0x" + this.block.toString(16),
+          from: owner,
+          to: addresses.PawnShop,
+          cumulativeGasUsed: "0x5208",
+          gasUsed: "0x5208",
+          contractAddress: null,
+          logs: [],
+          logsBloom: "0x" + "00".repeat(256),
+          status: "0x1",
+          effectiveGasPrice: "0x1",
+          type: "0x2",
+        };
       else if (method === "eth_call") {
         const { abi, fn, args, to } = this.decode(params[0]);
         if (fn === this.revertOn)

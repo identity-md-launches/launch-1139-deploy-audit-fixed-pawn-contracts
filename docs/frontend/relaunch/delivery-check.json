@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-10-09T17:55:41.027180+00:00",
+  "limitBytes": 8388608,
+  "workingFiles": 290,
+  "workingFileBytesBeforeThisReport": 8098642,
+  "compressedWorkingTreeEstimateBytes": 4701382,
+  "estimateMethod": "gzip tar of existing tracked plus unignored untracked files, without inputs, scratch, caches, dependencies or .git. Final Git bundle is created by the worker; this is not that bundle.",
+  "protectedPathChanges": [],
+  "submodules": false,
+  "cacheOrDependencyDeliverables": false,
+  "indexSHA256": "21fbd83894e0ff69698d02fce2cf34198e135fe1b1bf05137650ebb281f16147",
+  "manifestSHA256": "4b24b575bd2b148352121bbc2a896bef31dab1ef4f33dbec39649db214e3da32",
+  "exportFileBytes": 1016879,
+  "checks": {
+    "typecheck": 0,
+    "unitTests": {
+      "passed": 21,
+      "failed": 0
+    },
+    "build": 0,
+    "exportIntegrity": 0,
+    "browserScenarios": {
+      "passed": 8,
+      "failed": 0
+    },
+    "liveMainnetLocalRender": 0,
+    "publish": 1
+  }
+}

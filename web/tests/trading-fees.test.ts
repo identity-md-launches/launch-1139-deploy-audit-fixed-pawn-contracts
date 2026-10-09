@@ -4,8 +4,10 @@ import { encodeAbiParameters, parseAbiParameters } from "viem";
 import { tradingFees } from "../src/trading-fees";
 import deployment from "../deployment.json";
 const token = deployment.contracts.find((c) => c.name === "LaunchToken")!,
-  shop = deployment.contracts.find((c) => c.name === "PawnShop")!,
-  burn = deployment.contracts.find((c) => c.name === "MilestoneBurn")!;
+  shop = deployment.tokenLaunch.contracts.find((c) => c.name === "PawnShop")!,
+  burn = deployment.tokenLaunch.contracts.find(
+    (c) => c.name === "MilestoneBurn",
+  )!;
 const factory = "0xff03410d0fe5fa8f7f59f743de35e333d9857120",
   distributor = "0x4f026ddbaee3360b8ddfdcb750511081a01e5b68",
   recipient = "0x23e5d7a7b4ea19530ec39c67cd46aa8c10d15acf";
@@ -33,9 +35,20 @@ function fixture() {
   const key: any = { ...deployment.poolKey };
   const r: any = {
     deployment,
-    contracts: { PawnShop: shop, MilestoneBurn: burn, LaunchToken: token },
+    contracts: {
+      PawnShop: deployment.contracts.find((c) => c.name === "PawnShop"),
+      MilestoneBurn: deployment.contracts.find(
+        (c) => c.name === "MilestoneBurn",
+      ),
+      LaunchToken: token,
+    },
     client: {
-      async getTransactionReceipt() {
+      async getTransactionReceipt({ hash }: any) {
+        assert.equal(
+          hash,
+          token.txHash,
+          "Trading fees use the original token launch transaction",
+        );
         return receipt;
       },
       async getCode() {

@@ -10,6 +10,8 @@ for (const name of [
   "LendingPool",
   "LockDiscount",
   "CollateralVault",
+  "FloorRelay",
+  "VaultFactory",
 ]) {
   const path = `docs/abi/${name}.json`;
   const pinned = execFileSync(

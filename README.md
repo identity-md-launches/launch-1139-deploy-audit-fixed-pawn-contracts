@@ -2,41 +2,51 @@
 
 Borrow ETH against an identity.md seat while its worker continues to participate in the IMD swarm. Lenders hold WETH-backed ERC-4626 shares. Loans have fixed principal and terms: there are no price-triggered liquidations, but an overdue seat can be auctioned. Project account: [@PawnIMD](https://x.com/PawnIMD).
 
-## Audit e4a761c2 redeployment (this revision)
+## Mainnet site update — launch 1139
 
-PawnShop (with its LendingPool, LockDiscount and new VaultFactory), the CollateralVault implementation and MilestoneBurn are redeployed with fixes F1–F16 and the new protocol-share split from audit job `e4a761c2-59b8-4c34-84fc-54fade5f665a` (commit `5086b57`). The PAWN token and FloorRelay stay as deployed. [docs/AUDIT-FIXES.md](docs/AUDIT-FIXES.md) has the full finding → fix → test table. In short:
+The site targets the latest `evm_contracts` launch on Ethereum mainnet (chain ID **1**), source commit `f6f7d1e5b521a0490732b996bb2c54473bd5f68f`. The existing name remains **pawn.site.identitymd.eth**. This assignment updates frontend source, deployment records, keeper addresses and the complete static export; it does not deploy or change contracts or re-mint PAWN.
 
-| Finding | Fix |
-| --- | --- |
-| F1 | `startAuction` needs a fresh floor; no `buyAuction` in the block the auction started |
-| F2 | `restartAuction(id)` after a write-off or 7 days at the terminal price, with a fresh floor |
-| F3 | `buyAuction` reverts if the vault does not hold the collateral; `writeOffAuction` settles that case |
-| F4 | Allowance released beyond the realised loss vests over 7 days; allowance may fall only while collateral is held |
-| F5 | `markOverdue(id)` from the due date books `principal − min(principal, floor/2)` (never decreasing) |
-| F6 | `pawn(collection, tokenId, termId, minPrincipal, maxFee)`; the site sends ±1% bounds |
-| F7 | No auction bounty to the borrower; bounty = `min(0.002 ETH, principal/100)` |
-| F8 | `submitFloor` rejects `fromBlock > toBlock` and windows that closed more than 7800 blocks ago |
-| F9 | `reserveUsed[id]` is restored to the shortfall reserve first from late recoveries |
-| F10 | Invariant formulas sum additions before subtracting |
-| F11 | MilestoneBurn accepts answers at most 1 hour old |
-| F12 | `executeDepositCap` has a 7-day execution window; `cancelDepositCap()` (owner) |
-| F13 | Vault `isValidSignature` uses `holdsCollateral()` and returns `0xffffffff` instead of reverting |
-| F14 | `buyAuction` rejects the loan's vault or collection as receiver |
-| F15 | Any question-hash write (one-shot or queued rotation) disables new loans for 48 h; the constructor preset is exempt |
-| F16 | Discount-module `release` is try/caught on repay, buy and write-off |
-| Protocol share | Lenders keep 85%. Of the 15% protocol share, 50% fills the reserves while either is below target and 50% goes to the fee recipient; at target, 100% goes to the recipient |
+| Contract | Verified mainnet address | Source |
+| --- | --- | --- |
+| FloorRelay | `0x1ff0fb56f9a6c5c5c8201906d487ec4d8f5afc50` | Launch 1139 |
+| PawnShop | `0xf0d9300d7d891bc842da540cc4ddef050da9bcd4` | Launch 1139 |
+| MilestoneBurn | `0x45098bc496b3fdc870f89b8785047fb0e19ee99a` | Launch 1139 |
+| LaunchToken (unchanged) | `0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478` | Original token launch 994 |
+| LendingPool | `0xe51a10d7b6978d153ad5075818c22e6ddfe15160` | `PawnShop.lendingPool()` |
+| Active LockDiscount | `0x2546b64664146b1efc4fe66284386961fa25d52d` | `PawnShop.discountModule()` |
+| VaultFactory | `0xa7820e9e40630f5c3edffd5868f5e6e6f886681b` | `PawnShop.vaultFactory()` |
 
-**Deployment parameters for the redeployment.** `PawnShop(owner_ = $owner, token_ = 0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478, weth_ = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, attester_ = <deployed FloorRelay>)`; `MilestoneBurn(token_, setter_ = $owner, signer_ = <deployed FloorRelay>, shop_ = $contract:PawnShop)`. Presets compiled in: identity.md question hash `0x71ed43868c5c61fe21b72bbbdcc09913d4952a113a393c526e49f3289edf4be1`, `newLoansPaused = true`, fee recipient and pool owner = owner. **The FloorRelay address is not in this job's deployment record and must be supplied by the deployment operator**. No placeholder is committed. `launch.json` is the earlier manifest, which the manifest step replaces.
+The standalone LockDiscount deployed in step 3, `0x071b4d8f098b2a3611996a41da3c2c96d53482d7`, is **not the active module**. It is preserved as `standaloneLockDiscount` in `web/deployment.json`, outside the site's active contract list. VaultFactory creates a standalone CollateralVault per loan; there is no deployed CollateralVault implementation address.
 
-**MilestoneBurn question.** The burn question must ask for PAWN's fully diluted market cap from a **24-hour time-weighted average price** (not spot), because an answer is accepted for only 1 hour after it is issued. Set it with `setQuestionHashOnce` after deployment, once an answer at or above the milestone exists; the setter can re-pin with `replaceQuestionHash` until the burn fires.
+All seven runtime addresses have code. At block **26156401**, all **194** ABI function selectors were present in their runtimes; ABI bytes match the pinned source and canonical ABI hashes match the launch record where supplied. Child `pawnShop()` bindings, pool WETH, PAWN bindings and the burn's 3,600-second age limit were read and checked. FloorRelay's full runtime hash matches the reviewed local artifact. This is interface/binding verification, not an independent source audit or byte-for-byte runtime comparison of every immutable-bearing contract. The [mainnet evidence](docs/frontend/relaunch/mainnet-verification.json) records block hash, code sizes, hashes and state. The [repeatable verifier](web/scripts/verify-launch.mjs) makes only public RPC reads:
 
-**Operational responsibilities added.** Keepers or anyone: `markOverdue` from each loan's due date, `startAuction` (after posting a fresh floor), `restartAuction` for stale auctions, `markAuctionLoss` and `writeOffAuction` as before. Owner: `cancelDepositCap` if needed. A queued cap must be executed within 7 days of maturity. After any question-hash rotation, new loans for that collection stay closed for 48 h.
+```sh
+node web/scripts/verify-launch.mjs --block 26156401
+```
 
-**Site.** The source in `web/` and the ABIs in `web/public/abi` target the new interface: pawn slippage bounds, the Setup presets panel (the attester-switch step is removed), and Stats showing protocol fees to the recipient and the reserve levels. The address files (`web/deployment.json`, `web/public/imd-deployment.json`) and `dist/` still describe the live contracts. Refresh them from the post-deployment record, then rebuild and publish under `pawn.site.identitymd.eth`. Publishing the new site before the contracts exist would break borrowing.
+`web/deployment.json`, `web/public/imd-deployment.json`, `keeper/config.json` and `dist/imd-deployment.json` carry the new addresses. The token pool key and original token launch provenance remain in `web/deployment.json`; trading fee discovery uses the token's original receipt, since its pool was not redeployed. The browser re-discovers the current child contracts and verifies their code and bindings before enabling transactions.
+
+At the recorded verification block, new loans were paused, the floor was unset, the pool had zero assets, and the burn question was unset. The owner and immutable burn setter were `0x23e5d7a7b4ea19530ec39c67cd46aa8c10d15acf`. These are dated observations, not promised current values; the site reads live state.
+
+## Floor approval and milestone burn
+
+In owner Setup or the public **Refresh floor**, paste an explorer request UUID and fetch its attestation. Fetching is read-only and works without a wallet. The site validates the exact question, chain, panel, signed answer, signer/domain, signature, age and floor block window before offering transactions. It displays the answer and full request hash.
+
+- If a floor hash matches neither the governed pin nor `approvedQuestionHash`, the connected owner sees **Approve this hash** (`approveQuestionHash`). Other visitors see **Waiting for owner approval** and the full hash.
+- Once the approval confirms, **Post floor** appears. Anyone with a connected Ethereum wallet may post. A matching governed/approved hash skips approval. Each transaction has a separate simulation, review and confirmation. An already stored or older floor sends no duplicate transaction.
+- Approval is immediate and vouches for that request's question. It neither rotates the governed pin nor imposes its 48-hour cooldown. Starting or restarting an auction requires a fresh floor.
+
+The burn question is exactly:
+
+> What is the fully diluted market cap of the PAWN token (0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478, Ethereum mainnet), computed as total supply times its 24-hour time-weighted average price from its Uniswap v4 ETH pool, converted to USD at the current ETH price? Answer as a uint256 in USD with 18 decimals.
+
+After **Verify market cap**, answers below $1M show their value and that the milestone has not been reached, with no pin/burn action. At or above $1M, the immutable setter sees **Pin this answer**: `setQuestionHashOnce` when unset, otherwise `replaceQuestionHash`. After confirmation, **Burn** appears. A pinned matching answer skips re-pinning. The public Oracle & burn tab also supports a setter who is no longer PawnShop's owner.
+
+A visible countdown uses the earlier of signed expiry and one hour after issue. Pinning and burning become unavailable at the deadline, including in an open transaction review; fresh evidence is required. The contract permits exactly 3,600 seconds, while the UI conservatively closes at zero remaining seconds. Burn is permissionless once pinned, requires a funded vault and is irreversible and one-time. Wallet confirmation and mining still take time, so do not wait until the deadline. The Risks section explains immediate owner admission, fresh-floor auctions and the burn's one-hour limit.
 
 ## Website: install, preview, rebuild and publish
 
-The existing React/TypeScript site is in `web/`; its complete static export is in `dist/`. Use Node.js 22.12+ and the committed `web/package-lock.json`:
+Use Node.js 22.12+ with the existing committed `web/package-lock.json`. Dependencies and build configuration are unchanged. React, TypeScript, Vite and viem remain the existing stack.
 
 ```sh
 npm ci --prefix web --cache /tmp/pawn-npm-cache
@@ -47,21 +57,25 @@ npm --prefix web run validate:export
 npm --prefix web run preview
 ```
 
-Preview serves the production export locally; `npm --prefix web run dev` serves source. Builds verify pinned ABIs and regenerate the exported asset inventory. Vite uses `base: './'` and hash routing, so serve the complete `dist/` directory at any static gateway subpath. Keep source, manifest, lockfile and export together in the submission; dependencies and caches are not deliverables.
+The production build uses local dependencies, pinned ABIs and Git objects without fetching network resources. `prepare.mjs` copies all eight `docs/abi/` interfaces after pinned-source/hash checks. `dist/` is the complete production export; Vite uses `base: './'` and hash routing for static gateway subpaths. The build regenerates the SHA-256 asset inventory. `npm --prefix web run dev` serves source. The existing pixel theme, local font and frog assets are retained. Do not include `node_modules`, caches, temporary browser installations or registry archives in a submission.
 
-Setup and governance transaction controls now render only for the relevant connected contract owner. All visitors can read paused/open state, deposit cap, floor question configuration and pending changes with countdowns in Governance. Direct non-owner `#setup` links show the same read-only state. The public Refresh floor flow and personal borrower/lender claims remain available under their existing rules. The pixel theme and frog assets remain. FloorRelay adds zero-consumer signature support without changing PawnShop or MilestoneBurn. Oracle purchases happen on the explorer; the site accepts request IDs and the keeper reads configured IDs.
+Run the current interaction and live-read checks (a bounded foreground server/browser process that closes on completion):
 
-To publish the export under the existing name, from an authorized IdentityMD host:
+```sh
+PLAYWRIGHT_BROWSERS_PATH=/tmp/pawn-playwright web/node_modules/.bin/playwright install chromium
+PLAYWRIGHT_BROWSERS_PATH=/tmp/pawn-playwright web/node_modules/.bin/tsx web/tests/launch-browser.ts
+PLAYWRIGHT_BROWSERS_PATH=/tmp/pawn-playwright node web/tests/launch-live.mjs
+```
+
+Actual results: production build, TypeScript check, export integrity, 21 unit tests and 8 production-browser scenarios passed. Desktop/mobile review covered 320, 390, 800 and 1440 CSS pixels, keyboard review/cancel, reduced motion, zero automated accessibility findings in Setup, and measured contrast pairs. The local production export also read real mainnet RPC data and displayed the new PawnShop in Setup; its read-only owner-address adapter rejected all signing methods. No on-chain transaction was signed or broadcast. [Validation](docs/frontend/relaunch/validation.md) distinguishes these checks from publication, documents limitations and records the six Better Interface domains. [DESIGN.md](DESIGN.md) describes the implemented design.
+
+To publish under the same name, on an already authorized IdentityMD host:
 
 ```sh
 imd site publish dist --name pawn
 ```
 
-The target remains **pawn.site.identitymd.eth**. This worker attempted that command, but the service refused it with **503 `member_sites_closed`: “this plane names no member sites”**. No new CID or name update was returned. Live delivery of this update’s assets and favicon could not be confirmed. See [the current publication record](docs/frontend/floor-relay/publication.json). An authorized hosting service must publish this export when naming is available. After publication, compare the served HTML/JS and `pawn.svg` with `dist/` and its `imd-deployment.json` SHA-256 inventory; do not treat a successful local build as publication.
-
-Current FloorRelay validation and operational limits are recorded in [relay validation](docs/floor-relay-validation.md) and [Setup and keeper](docs/SETUP-AND-KEEPER.md). No on-chain transaction was signed or broadcast. Files are prepared for the submission system; git metadata is not modified.
-
-This contribution contains contracts, local tests, vendored dependencies and ABI exports. The separate manifest contributor owns `launch.json`; independent review, source publication, admission, deployment and the IPFS frontend follow this contribution. No transactions are broadcast by this repository.
+**Publication remains blocked.** In this run that command exited 1 with `not configured — run: imd pair --server <url>`. No CID or name update was returned. Both public ENS gateways (`pawn.site.identitymd.eth.limo` and `.eth.link`) failed TLS connection attempts, and the supplied browser connector returned `Transport closed`; local Chromium was used for rendered validation. Therefore the hosted Setup page could not be confirmed. No credentials were read, generated or requested. The hosting operator must publish this export through its authorized service, then verify that `#setup` lists `0xf0d9300d7d891bc842da540cc4ddef050da9bcd4` and compare hosted files to the exported SHA-256 inventory. See [publication evidence](docs/frontend/relaunch/publication.json). Earlier publication reports are historical.
 
 ## Build and test
 
@@ -82,7 +96,7 @@ The revision includes regression tests for the review findings and the supplied 
 
 | Contract | Constructor arguments | Deployment |
 | --- | --- | --- |
-| `FloorRelay` | none | Kept as deployed; its address is PawnShop's `attester_` and MilestoneBurn's `signer_` |
+| `FloorRelay` | none | Launch 1139 deployment; its address is PawnShop's `attester_` and MilestoneBurn's `signer_` |
 | `LaunchToken` | none | Launch token; manifest token identifier `LaunchToken` |
 | `PawnShop` | `address owner_, address token_, address weth_, address attester_` | Application; `$owner`, `$token`, Ethereum WETH below, the deployed FloorRelay |
 | `VaultFactory` | none | Created inside `PawnShop`'s constructor; discover with `vaultFactory()`; only the shop can create vaults |
@@ -91,7 +105,7 @@ The revision includes regression tests for the review findings and the supplied 
 | `CollateralVault` | `address shop_` | One standalone instance per `pawn()`, created through VaultFactory and initialized atomically by PawnShop |
 | `MilestoneBurn` | `address token_, address setter_, address signer_, address shop_` | Application after PawnShop; `$token`, `$owner`, supplied oracle signer below, `$contract:PawnShop` |
 
-The manifest should list **PawnShop and MilestoneBurn** as its two application deployments, after the token. Pool and discount are constructor-created children with their shop permanently set; listing them again would deploy unrelated duplicates. A vault is created only when there is collateral. All constructors are nonpayable and use supported static argument types. No constructor takes or redistributes any of the launch token supply. Children and per-loan vaults also have exported ABIs and need source verification and indexing after deployment. Constructor arguments are explicit; control never defaults to the launch factory's `msg.sender`.
+Launch 1139 deployed FloorRelay, PawnShop, the standalone spare LockDiscount and MilestoneBurn in that order, using the existing PAWN token. Pool and discount are constructor-created children with their shop permanently set; listing them again would deploy unrelated duplicates. A vault is created only when there is collateral. All constructors are nonpayable and use supported static argument types. No constructor takes or redistributes any of the launch token supply. Children and per-loan vaults also have exported ABIs and need source verification and indexing after deployment. Constructor arguments are explicit; control never defaults to the launch factory's `msg.sender`.
 
 | Ethereum mainnet parameter | Value / authority |
 | --- | --- |
@@ -99,8 +113,8 @@ The manifest should list **PawnShop and MilestoneBurn** as its two application d
 | Intended owner and burn question setter | `0x23e5d7a7b4ea19530ec39c67cd46aa8c10d15acf`, from the workflow; manifest `$owner` must resolve to this address |
 | Identity collection | `0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D`, from the workflow |
 | WETH | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2`, from the workflow |
-| Initial attester for both consumers | `0x5598aa9146215bc13eb26f2c692ad1461fd32982`, supplied protocol reference; confirmed by [oracle API](https://api.imd.fun/oracle/requests?limit=1) on 2026-10-08 |
-| Floor and burn question hashes | Unconfigured storage at launch; set to actual oracle canonical hashes after launch, never fabricated constructor values |
+| Initial attester for both consumers | FloorRelay `0x1ff0fb56f9a6c5c5c8201906d487ec4d8f5afc50`; its immutable IMD signing authority is `0x5598aa9146215bc13eb26f2c692ad1461fd32982` |
+| Floor and burn question hashes | Floor constructor preset `0x71ed43868c5c61fe21b72bbbdcc09913d4952a113a393c526e49f3289edf4be1`; burn initially unset, pinned to a verified qualifying answer by its setter |
 
 The identity collection is initially enabled with 40% floor LTV for both terms and a 100% collection share limit. New loans are **paused** initially. Mainnet addresses are supplied inputs, not invented test deployment addresses. Deployment services must check the intended network and verify live code; local tests do not claim to have fork-tested mainnet.
 
@@ -109,7 +123,7 @@ The identity collection is initially enabled with 40% floor LTV for both terms a
 ## Borrowing and repayment
 
 1. Approve PawnShop for the seat. Optionally approve and lock PAWN in LockDiscount first.
-2. Call `pawn(collection, tokenId, termId, minPrincipal, maxFee)`; it reverts `Slippage` if the principal is below `minPrincipal` or the fee above `maxFee` (the site sends the displayed principal −1% and fee +1%). New loans for a collection are closed for 48 hours after any question-hash write (constructor preset exempt). Term 0 starts at 30 days / 300 bps; term 1 at 7 days / 100 bps. Principal is always the configured term's maximum floor percentage, rounded down. There is no smaller-amount argument or automatic reduction to available liquidity; an oversized loan reverts. Minimum principal is 0.01 ETH. The collection's outstanding principal plus this loan must fit its share of `pool.totalAssets()`, and enough idle WETH must exist.
+2. Call `pawn(collection, tokenId, termId, minPrincipal, maxFee)`; it reverts `Slippage` if the principal is below `minPrincipal` or the fee above `maxFee` (the site sends the displayed principal −1% and fee +1%). New loans for a collection are closed for 48 hours after a governed question-hash write (constructor preset and immediate request-hash admission exempt). Term 0 starts at 30 days / 300 bps; term 1 at 7 days / 100 bps. Principal is always the configured term's maximum floor percentage, rounded down. There is no smaller-amount argument or automatic reduction to available liquidity; an oversized loan reverts. Minimum principal is 0.01 ETH. The collection's outstanding principal plus this loan must fit its share of `pool.totalAssets()`, and enough idle WETH must exist.
 3. PawnShop creates a vault, takes the NFT and credits principal minus the discounted fee. Call `PawnShop.claim(receiver)` to receive the ETH.
 4. Any payer can `repay(loanId)` with exactly the full principal until an auction starts, including after expiry. If the vault still owns the NFT, it returns to the recorded borrower. Collection revocation, seizure or burning does not block repayment or PAWN commitment release; a missing NFT cannot be returned. There is no early repayment fee rebate.
 5. Only the borrower can `extend(loanId, termId)` with exactly the discounted fee and a fresh floor. The new due date is `max(oldDue, now) + chosenDuration`. Both term choices are snapshotted at origination, so later term changes do not alter an existing loan. A module change applies only to new loans: each loan uses and eventually releases its original module. Extensions have no LTV recheck, count limit or maximum future due date; even underwater loans can extend repeatedly while paying the fee and posting a fresh floor. Lenders cannot force resolution while such extensions continue.
@@ -184,20 +198,18 @@ While the loan is active the borrower may use `callFor(target,data)` without ETH
 
 ## Oracle operations and burn
 
-Both consumers use the supplied **OracleAttestation v2** library unchanged. EIP-712 domain: `IdentityMD Oracle`, version `2`, current chain ID, verifying contract **the particular consumer**. The application requires `a.chainId == 1`, a pinned question hash, uint256 answer in wei (floor) or USD with 18 decimals (FDV), panel size at least five, quorum at least four, agreement at least quorum and no greater than panel size. It rejects future timestamps, attestations older than 26 hours, expired signatures and reused request IDs. Floor updates must be strictly newer than the collection's stored timestamp and expire after they were issued; any signed lifetime is accepted (the service issues 24-hour floors) and the floor is fresh for the shorter of 26 hours and the signed lifetime. Longer lifetimes do not veto later answers, and no answer is used past its signed expiry or the 26-hour age limit. Because the oracle's `questionHash` covers each request's block window, the owner admits each floor request's hash with `approveQuestionHash` before it is posted (see ADAPTATION.md). Lending stops after the 26-hour age bound; changing the configured question also invalidates freshness until a new matching answer is accepted.
+Both consumers use the supplied **OracleAttestation v2** library unchanged. EIP-712 domain: `IdentityMD Oracle`, version `2`, current chain ID, verifying contract **the particular consumer**. The application requires `a.chainId == 1`, a pinned question hash, uint256 answer in wei (floor) or USD with 18 decimals (FDV), panel size at least five, quorum at least four, agreement at least quorum and no greater than panel size. It rejects future timestamps, expired signatures and reused request IDs. Floors have a 26-hour age limit; burn answers have a one-hour age limit. Floor updates must be strictly newer than the collection's stored timestamp and expire after they were issued; any signed lifetime is accepted (the service issues 24-hour floors) and the floor is fresh for the shorter of 26 hours and the signed lifetime. Longer lifetimes do not veto later answers, and no answer is used past its signed expiry or the 26-hour age limit. Because the oracle's `questionHash` covers each request's block window, the owner admits each floor request's hash with `approveQuestionHash` before it is posted (see ADAPTATION.md). Lending stops after the 26-hour age bound; changing the configured question also invalidates freshness until a new matching answer is accepted.
 
 These are permissionless signed submissions, not contracts that buy oracle requests or receive Intake callbacks. Operators pay the oracle outside the application and submit the returned attestation to `submitFloor(collection,a,signature)` or `burn(a,signature)`. Before relay activation, a signature for the shop cannot trigger a burn. After activation, the relay translates the same authentic zero-consumer attestation into either caller’s domain; each consumer still checks its own configured question and policy. The constructor requires the real nonzero signer supplied above; the canonical verifier rejects zero signers. PawnShop signer rotations take 48 hours. MilestoneBurn binds to PawnShop in its constructor and validates the initial token and signer match. Anyone can `syncSigner()` after a shop rotation; `burn()` always synchronizes before verification, so a retired signer cannot race that explicit sync. The burn vault acquires no owner or withdrawal function, but trusts the shop's governed signer choices.
 
-MilestoneBurn accepts voluntary PAWN transfers. Once the signed FDV reaches **1,000,000 × 10^18 USD units**, anyone may burn its entire current balance by transferring it to the expressly requested `0x000000000000000000000000000000000000dEaD`. This is a one-time sink transfer, not ERC-20 supply reduction. Empty burns revert. PAWN sent after the burn stays trapped forever, so check `burned()` before sending. There is no withdrawal, rescue, owner or second burn. Its question setter can configure the hash once and has no other power. The one-shot hash still has the window compatibility limitation below; signer rotation alone does not solve that issue.
+MilestoneBurn accepts voluntary PAWN transfers. Once the signed FDV reaches **1,000,000 × 10^18 USD units**, anyone may burn its entire current balance by transferring it to the expressly requested `0x000000000000000000000000000000000000dEaD`. This is a one-time sink transfer, not ERC-20 supply reduction. Empty burns revert. PAWN sent after the burn stays trapped forever, so check `burned()` before sending. There is no withdrawal, rescue, owner or second burn. Its immutable question setter configures the first hash with `setQuestionHashOnce` and can replace it with `replaceQuestionHash` until the burn fires. Use the verified 24-hour TWAP question above, pin an answer at or above the milestone and burn within its one-hour age/signed-expiry deadline. The setter cannot withdraw or move vault funds.
 
 ## After launch
 
-- Deployment operator: deploy and verify `FloorRelay` on mainnet with no arguments, then give its address to the owner. This assignment deploys nothing and supplies no guessed relay address. Owner: use Setup’s **Switch attester to FloorRelay**, wait 48 hours and execute within the following 7 days. MilestoneBurn follows PawnShop automatically. The immutable relay pins chain 1 and IMD’s published attester; future key rotation requires another relay and governed switch. See [the complete activation procedure](docs/SETUP-AND-KEEPER.md).
-
-- Owner: call `PawnShop.setQuestionHashOnce(identityCollection, actualHash)`. Obtain the canonical hash from the oracle's attestation API after agreeing an unambiguous floor question, chain, window and definitions. Do not use a locally invented hash. Collection changes, including later hash rotations, use `queueCollection` / `executeCollection` with a 48-hour delay.
-- Original owner / immutable `questionSetter`: call `MilestoneBurn.setQuestionHashOnce(actualHash)` with the canonical PAWN FDV question hash. Check the actual deployed PAWN address, USD units, supply convention and pricing method before consuming this one-time setting.
-- Oracle operator: buy compatible collection floor and PAWN FDV questions on explorer.imd.fun. After the FloorRelay switch, omit the consumer; before it, request the relevant consumer domain. Paste the returned UUID on the site or configure it in the keeper. The supplied Ethereum Intake is `0x1397434cd35e8a9c8ac312a61d3a285eb31dea56`, payment asset IMD is `0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7`, and the supplied action is the right-padded text `oracle.request@oracle-1`. The supplied price is 0.5 IMD; query the live service or `priceOf` before paying. Top up that operator wallet, **not** the shop or burn contract. Refused or inconclusive requests can spend the price without yielding an attestation. Oracle payments are not refunded by Pawn.
-- Owner and oracle operator: resolve the canonical question-hash/window issue in [review notes](docs/review-notes.md) before enabling borrowing. The hash pins the resolved window as well as the question; do not assume a new relative-window answer will reuse it.
+- FloorRelay is deployed and active in launch 1139; no initial attester switch or wait is needed. Future signer rotations remain governed by PawnShop's 48-hour delay; MilestoneBurn follows that signer automatically.
+- Owner: the governed identity.md question is preset. For each new explorer request, verify the floor question and use **Approve this hash**, then **Post floor**. Governed question rotations still use `queueCollection` / `executeCollection` with a 48-hour delay and borrowing cooldown; immediate request approval does not change that pin.
+- Immutable burn setter: verify the exact PAWN TWAP FDV question, inspect an answer at or above $1M, then pin/re-pin and burn before the earlier of signed expiry or one hour after issue.
+- Oracle operator: buy the displayed question on explorer.imd.fun with no consumer while FloorRelay is active. Paste the request UUID in the site, or configure request IDs in the keeper after the necessary owner/setter admission. Oracle purchases can be refused or inconclusive; they are not refunded by Pawn. The keeper's address configuration is updated; its existing runtime is unchanged by this frontend assignment.
 - Anyone: fund lender liquidity with `deposit` / `depositETH` and optionally keeper reserves through `fundBounties`. Owner: submit a valid floor, check all setup and then call `setNewLoansPaused(false)`.
 - Keepers/lenders: monitor auction prices and collateral availability, call `PawnShop.markAuctionLoss(loanId)` to keep loss allowances current, and call `writeOffAuction(loanId)` after 40 days unsold (or earlier if collateral is missing). These maintenance calls pay no extra bounty. Later auction sales remain possible.
 - Owner: claim protocol trading income through the launch's deployed pool flow and forward desired ETH through `LendingPool.donate()` while `totalSupply() > 0`; otherwise retain it in the claiming wallet until lenders arrive. This is a voluntary operational responsibility, not an automatic token tax.
@@ -207,9 +219,9 @@ MilestoneBurn accepts voluntary PAWN transfers. Once the signed FDV reaches **1,
 
 PawnShop and LendingPool have independent OpenZeppelin Ownable2Step ownership, explicitly initialized to the intended owner. Transfer/accept ownership on both when rotating operations. Renunciation is disabled. LockDiscount and MilestoneBurn have no ongoing owner, and vault control is limited to the borrower and immutable PawnShop.
 
-PawnShop's immediate powers are pausing/unpausing new loans, disabling new borrowing for a collection, setting an unset collection hash once, and cancelling a queued change. Changes to terms, collection limits/status/question, attester, fee recipient and discount module wait 48 hours. Anyone can execute the exact queued payload from its 48-hour deadline through the following seven days, inclusive. A newer queue supersedes the older payload for the same setting (each term id and collection has its own setting); disabling a collection cancels its pending collection change. Expired payloads must be queued anew and wait another 48 hours. Terms are restricted to 7–90 days and 50–1,000 bps; LTV cannot exceed 4,000 bps; non-seat collection share cannot exceed 2,500 bps. The pool owner can queue only increases to its deposit cap, also delayed 48 hours. Economic constants such as fee split, bounty amounts, grace period and auction slopes are immutable; there is no generic arbitrary-call governance function.
+PawnShop's immediate powers are pausing/unpausing new loans, disabling new borrowing for a collection, setting an unset collection hash once, immediately admitting a floor request hash with `approveQuestionHash`, and cancelling a queued change. Changes to terms, collection limits/status/question, attester, fee recipient and discount module wait 48 hours. Anyone can execute the exact queued payload from its 48-hour deadline through the following seven days, inclusive. A newer queue supersedes the older payload for the same setting (each term id and collection has its own setting); disabling a collection cancels its pending collection change. Expired payloads must be queued anew and wait another 48 hours. Terms are restricted to 7–90 days and 50–1,000 bps; LTV cannot exceed 4,000 bps; non-seat collection share cannot exceed 2,500 bps. The pool owner can queue only increases to its deposit cap, also delayed 48 hours. Economic constants such as fee split, bounty amounts, grace period and auction slopes are immutable; there is no generic arbitrary-call governance function.
 
-Lenders trust the oracle attester's correctness, the collection's ownership/transfer implementation, and governance's future collection and module selections. The immediate one-shot question selection and the delayed attester/collection powers can economically expose **all idle lender ETH**: an unsuitable question with a genuine large answer, a malicious signer (including ERC-1271), or worthless owner-listed collateral can support a loan sized to the available liquidity. Values above the collection share ceiling revert rather than being clamped, but a tailored valuation can still borrow the entire idle balance. Absence of an explicit owner withdrawal is not protection from those valuation powers. Monitor 48-hour queues; initial question selection has no delay. Signer governance also controls which signatures the burn vault accepts. A malicious replacement module can impair new loans using it; it cannot change existing loans' stored module. The reserve can be exhausted; unsold collateral, a bad or stale auction floor, collection transfer restrictions or a failing oracle can prevent timely recovery. Worker enrollment and reward-service compatibility are external dependencies. Transactions can be reordered and auction purchases can compete. ETH credits remain claimable if a chosen receiver rejects ETH; retry with a different receiver. Forced ETH transfers are not counted as lender assets or administrator income and have no rescue path.
+Lenders trust the oracle attester's correctness, the collection's ownership/transfer implementation, and governance's future collection and module selections. The immediate one-shot question selection and the delayed attester/collection powers can economically expose **all idle lender ETH**: an unsuitable question with a genuine large answer, a malicious signer (including ERC-1271), or worthless owner-listed collateral can support a loan sized to the available liquidity. Values above the collection share ceiling revert rather than being clamped, but a tailored valuation can still borrow the entire idle balance. Absence of an explicit owner withdrawal is not protection from those valuation powers. Monitor 48-hour queues and immediate request-hash admissions; `approveQuestionHash` has no delay. Signer governance also controls which signatures the burn vault accepts. A malicious replacement module can impair new loans using it; it cannot change existing loans' stored module. The reserve can be exhausted; unsold collateral, a bad or stale auction floor, collection transfer restrictions or a failing oracle can prevent timely recovery. Worker enrollment and reward-service compatibility are external dependencies. Transactions can be reordered and auction purchases can compete. ETH credits remain claimable if a chosen receiver rejects ETH; retry with a different receiver. Forced ETH transfers are not counted as lender assets or administrator income and have no rescue path.
 
 The contract/source conflicts documented for independent review are part of this handoff; passing tests do not resolve them or constitute launch approval.
 

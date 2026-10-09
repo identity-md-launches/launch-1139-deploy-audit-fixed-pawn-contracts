@@ -12,7 +12,8 @@ export const factoryABI = parseAbi([
   "function claimFees(uint64) returns (uint256 amount0,uint256 amount1)",
 ]);
 export async function tradingFees(r: Runtime, account: Address) {
-  const record = handoff.contracts.find((c) => c.name === "PawnShop")!;
+  // Trading liquidity and fees belong to the unchanged token’s original launch.
+  const record = handoff.contracts.find((c) => c.name === "LaunchToken")!;
   const receipt = await r.client.getTransactionReceipt({
     hash: record.txHash as `0x${string}`,
   });
@@ -44,11 +45,18 @@ export async function tradingFees(r: Runtime, account: Address) {
   );
   if (
     !children.some(
-      (a) => a.toLowerCase() === r.contracts.PawnShop.address.toLowerCase(),
+      (a) =>
+        a.toLowerCase() ===
+        handoff.tokenLaunch.contracts
+          .find((c) => c.name === "PawnShop")!
+          .address.toLowerCase(),
     ) ||
     !children.some(
       (a) =>
-        a.toLowerCase() === r.contracts.MilestoneBurn.address.toLowerCase(),
+        a.toLowerCase() ===
+        handoff.tokenLaunch.contracts
+          .find((c) => c.name === "MilestoneBurn")!
+          .address.toLowerCase(),
     )
   )
     throw Error("Project launch bindings mismatch.");

@@ -94,6 +94,7 @@ export async function fetchSnapshot(
     fields(r, shopContract, [
       "lendingPool",
       "discountModule",
+      "vaultFactory",
       "IDENTITY_COLLECTION",
       "owner",
       "pendingOwner",
@@ -139,7 +140,22 @@ export async function fetchSnapshot(
       address: shop.discountModule,
       abi: r.abis.LockDiscount,
     };
-  await verifyCode(r, [poolContract.address, lockContract.address]);
+  await verifyCode(r, [
+    poolContract.address,
+    lockContract.address,
+    shop.vaultFactory,
+  ]);
+  const factoryShop = await read(
+    r,
+    {
+      name: "VaultFactory",
+      address: shop.vaultFactory,
+      abi: r.abis.VaultFactory,
+    },
+    "pawnShop",
+  );
+  if (factoryShop.toLowerCase() !== shopContract.address.toLowerCase())
+    throw Error("Discovered VaultFactory is not bound to PawnShop.");
   const [pool, lock, collection, floor, fresh, debt] = await Promise.all([
     fields(r, poolContract, [
       "totalAssets",

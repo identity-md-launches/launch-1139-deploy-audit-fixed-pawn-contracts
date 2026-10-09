@@ -49,9 +49,12 @@ export function Setup() {
     <span className="step-state">{value ? "Done" : "Pending"}</span>
   );
   const contracts = [
-    ...r.deployment.contracts,
+    ...r.deployment.contracts.filter(
+      (c) => !["LendingPool", "LockDiscount", "VaultFactory"].includes(c.name),
+    ),
     s.poolContract,
     s.lockContract,
+    { name: "VaultFactory", address: s.shop.vaultFactory },
     { name: "PoolInitializationGuard", address: r.deployment.poolKey.hooks },
     ...(fees
       ? [fees.factory, { name: "MerkleDistributor", address: fees.distributor }]
@@ -79,8 +82,8 @@ export function Setup() {
         </Pair>
         <p className="muted">
           Both are set at deployment; no setup transaction or attester switch is
-          needed. Buy answers on explorer.imd.fun with no consumer and paste
-          the request id below.
+          needed. Buy answers on explorer.imd.fun with no consumer and paste the
+          request id below.
         </p>
       </Panel>
       <div className="workspace-grid">

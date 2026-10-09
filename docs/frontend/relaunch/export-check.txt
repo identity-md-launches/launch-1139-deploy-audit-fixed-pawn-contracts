@@ -1,0 +1,5 @@
+
+> pawn-frontend@1.0.0 validate:export
+> node scripts/validate-export.mjs
+
+Export verified: 16 assets, 1011119 bytes; exact handoff, poolKey, network, ABI hashes and every SHA-256 match.

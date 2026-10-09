@@ -1,0 +1,152 @@
+{
+  "checkedAt": "2026-10-09T17:51:33.560Z",
+  "rpc": "https://ethereum-rpc.publicnode.com",
+  "chainId": 1,
+  "blockNumber": 26156401,
+  "blockHash": "0x82ecc93f7d01f230aba42a9ffb3dccb8ea90e3b6d9d78318c318650a11a1fc7e",
+  "sourceCommit": "f6f7d1e5b521a0490732b996bb2c54473bd5f68f",
+  "mode": "Read-only eth_chainId, eth_getBlockByNumber, eth_getCode and eth_call; no wallet, simulation or broadcast",
+  "contracts": [
+    {
+      "name": "LaunchToken",
+      "txHash": "0x190ffdf73e9858237c6f80151e0572214cb94d91e8cfbfd6ce9c408adaddb216",
+      "abiHash": "38880b8e56d42ce900f744a7908c7139632a49f1c3f33385c64ceaed29d37bee",
+      "address": "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
+      "blockNumber": 26146519,
+      "creationCodeHash": "a64c09f3e5c6f569dfecf476293e251fdb23ba8836947878dc6ea77d8492b697",
+      "codeBytes": 1489,
+      "runtimeCodeHash": "0xbde0b07f1d23914f145ade09d89897e06bcb7ab8dff09dc1c5a26c2c120fb30f",
+      "checkedFunctionSelectors": 9
+    },
+    {
+      "name": "FloorRelay",
+      "address": "0x1ff0fb56f9a6c5c5c8201906d487ec4d8f5afc50",
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "blockNumber": 26153528,
+      "creationCodeHash": "33ff0378ec33c807b2c5d078b39d311405118687a3a3f963de33de2624b3dcfe",
+      "abiHash": "ba3f8fbbd0373a2d5036be211c3ac23bafdafa9be2dceb998217acb2947a4406",
+      "codeBytes": 1884,
+      "runtimeCodeHash": "0xfb421e76420e20087c0ecaa03543699f7c2e38ce97d5a43df2cebd48cab2549a",
+      "checkedFunctionSelectors": 1
+    },
+    {
+      "name": "PawnShop",
+      "address": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "blockNumber": 26153528,
+      "creationCodeHash": "0016012cc3d2af2a056b6411f1a2000718c0d0813406af55500a3f6aadd597aa",
+      "abiHash": "0990c160149ec460595c077081c3b8e8f893b0c0b05646c9525e84c5528bbaf9",
+      "codeBytes": 21853,
+      "runtimeCodeHash": "0x0fbce957f751e2b10df4b77d7f8f16c04b0d97ad005fa625f9df909edeba66a8",
+      "checkedFunctionSelectors": 79
+    },
+    {
+      "name": "MilestoneBurn",
+      "address": "0x45098bc496b3fdc870f89b8785047fb0e19ee99a",
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "blockNumber": 26153528,
+      "creationCodeHash": "7f4e80a449a295ab8761a559159bb101b1b88cce716464e1662daae58d0354a6",
+      "abiHash": "9d80884c65cdea030e631d6f2fd725179d47d55a1fc6561d3800cfd90bc9a893",
+      "codeBytes": 5012,
+      "runtimeCodeHash": "0x9f7d107bcfc662b808f7eb5b2da9f72baeeb01eb6ddd8fd7a4e24e3f9875544f",
+      "checkedFunctionSelectors": 18
+    },
+    {
+      "name": "LendingPool",
+      "blockNumber": 26153528,
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "address": "0xe51a10d7b6978d153ad5075818c22e6ddfe15160",
+      "abiHash": "3fdeab41a8974b4a00a24e2f43b1b0add6ff821bad49a9726d8d0e63ddaa73a2",
+      "discoveredFrom": {
+        "address": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+        "getter": "lendingPool",
+        "blockNumber": 26156401
+      },
+      "codeBytes": 12138,
+      "runtimeCodeHash": "0xfed255e506e53b4bd76283799877f6a599622ff5fc4b69da1c03d5f189735e13",
+      "checkedFunctionSelectors": 71
+    },
+    {
+      "name": "LockDiscount",
+      "blockNumber": 26153528,
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "address": "0x2546b64664146b1efc4fe66284386961fa25d52d",
+      "abiHash": "66d0a871bf5ed26330b07e063ed358029222838c5b7209e053bccef75624f367",
+      "discoveredFrom": {
+        "address": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+        "getter": "discountModule",
+        "blockNumber": 26156401
+      },
+      "codeBytes": 2765,
+      "runtimeCodeHash": "0x34d824caa51525d733b59500b1cda610ca8666202617a9f835b2d8612d773fca",
+      "checkedFunctionSelectors": 13
+    },
+    {
+      "name": "VaultFactory",
+      "blockNumber": 26153528,
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "address": "0xa7820e9e40630f5c3edffd5868f5e6e6f886681b",
+      "abiHash": "a9a8034f6f6013c0be2627ee7952a5184d135880f8f23dd1a2534d169e03c065",
+      "discoveredFrom": {
+        "address": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+        "getter": "vaultFactory",
+        "blockNumber": 26156401
+      },
+      "codeBytes": 6394,
+      "runtimeCodeHash": "0x3470539e1378f0a943f99dfed349091bc37eeb72f7e9b9a9304edf44330338fd",
+      "checkedFunctionSelectors": 3
+    }
+  ],
+  "state": {
+    "owner": "0x23E5D7a7b4Ea19530Ec39c67Cd46Aa8c10D15acf",
+    "newLoansPaused": true,
+    "oracleSigner": "0x1FF0fb56f9A6c5c5c8201906D487eC4D8F5Afc50",
+    "pawnToken": "0x4F2BACEE5f2e7cE3F48DFbd635d96E9A8FcbE478",
+    "bountyReserve": "0",
+    "nextLoanId": "1",
+    "IDENTITY_COLLECTION": "0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D",
+    "IDENTITY_QUESTION_HASH": "0x71ed43868c5c61fe21b72bbbdcc09913d4952a113a393c526e49f3289edf4be1",
+    "collection": "0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D",
+    "collectionConfig": [
+      4000,
+      4000,
+      10000,
+      true,
+      true,
+      "0x71ed43868c5c61fe21b72bbbdcc09913d4952a113a393c526e49f3289edf4be1"
+    ],
+    "approvedQuestionHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "floor": [
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "floorFresh": false,
+    "pool": {
+      "totalAssets": "0",
+      "depositCap": "10000000000000000000",
+      "idleAssets": "0",
+      "totalBorrowed": "0",
+      "shortfallReserve": "0"
+    },
+    "burn": {
+      "burned": false,
+      "questionHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "questionSetter": "0x23E5D7a7b4Ea19530Ec39c67Cd46Aa8c10D15acf",
+      "burnedAmount": "0",
+      "MAX_ATTESTATION_AGE": "3600",
+      "pawnShop": "0xF0D9300D7d891bc842da540Cc4dDeF050da9Bcd4",
+      "pawnToken": "0x4F2BACEE5f2e7cE3F48DFbd635d96E9A8FcbE478"
+    }
+  },
+  "spareLockDiscount": {
+    "name": "LockDiscount",
+    "address": "0x071b4d8f098b2a3611996a41da3c2c96d53482d7",
+    "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+    "blockNumber": 26153528,
+    "creationCodeHash": "881858532b13793dd3599fc838b37b1fc1ca1a0315db66759340a03b29e32dc9",
+    "abiHash": "66d0a871bf5ed26330b07e063ed358029222838c5b7209e053bccef75624f367"
+  }
+}
+

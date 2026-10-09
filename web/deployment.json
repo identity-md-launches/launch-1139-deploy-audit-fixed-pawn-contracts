@@ -1,50 +1,44 @@
 {
-  "chainId": 1,
-  "poolKey": {
-    "fee": 12500,
-    "hooks": "0x784ff9a3ac5d88a30bfff6f7f2a270161fbe6000",
-    "currency0": "0x0000000000000000000000000000000000000000",
-    "currency1": "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
-    "tickSpacing": 60
-  },
-  "repoUrl": "https://github.com/identity-md-launches/launch-994-workflow-contract-stage-context",
   "version": 1,
-  "launchId": "2cf5339f-be68-4464-9276-f13ba0d6c070",
+  "launchId": "1522cb0f-6fc1-4423-aea1-4569851a1856",
+  "chainId": 1,
+  "repoUrl": "https://github.com/identity-md-launches/launch-1139-deploy-audit-fixed-pawn-contracts",
+  "sourceCommit": "f6f7d1e5b521a0490732b996bb2c54473bd5f68f",
+  "attestationHash": "6f9a60d3e783a9597205bbb085e8a4001a8c3290645823eb657c85d3ce005476",
   "manifest": {
-    "kind": "evm_project",
-    "pool": {
-      "fee": 3000,
-      "tickSpacing": 60,
-      "initialPrice": "79228162514264337593543950336",
-      "pairedCurrency": "0x0000000000000000000000000000000000000000"
-    },
-    "notes": "Pawn on Ethereum mainnet. LaunchToken has no constructor arguments. PawnShop creates and configures LendingPool and LockDiscount in its constructor; discover them through lendingPool() and discountModule(). Each loan creates and initializes its own standalone CollateralVault. These children are not separate factory deployments. The factory supplies the launch pool, MerkleDistributor and PoolInitializationGuard. Ownership and MilestoneBurn's immutable one-time question setter resolve through $owner from policy; PawnShop's initial fee recipient and LendingPool owner use the same value. WETH is the approved mainnet asset. Both oracle consumers use the attester reported by https://api.imd.fun/oracle/requests?limit=1 on 2026-10-08. New loans start paused. Actual floor and burn question hashes are configured through the existing authorized setters after launch; there are no factory initialization calls. Accepted-source review items remain: standalone vaults replace the requested clones, constructors require a nonzero signer without the optional zero-attester setup path, and pinned oracle question hashes need compatibility with fresh pricing. MilestoneBurn binds to PawnShop through its fourth constructor argument and validates the initial token and signer match. It follows PawnShop's 48-hour governed signer rotations through permissionless syncSigner() and synchronizes on every burn. Policy compatibility, source publication, signed artifact linkage, admission and deployment remain service responsibilities; these notes do not resolve review findings or authorize deployment.",
-    "token": {
-      "name": "Pawn",
-      "symbol": "PAWN",
-      "contract": "LaunchToken",
-      "decimals": 18
-    },
+    "kind": "evm_contracts",
     "contracts": [
+      {
+        "contract": "FloorRelay",
+        "constructorArgs": []
+      },
       {
         "contract": "PawnShop",
         "constructorArgs": [
           "$owner",
-          "$token",
+          "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
           "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-          "0x5598aa9146215bc13eb26f2c692ad1461fd32982"
+          "$contract:FloorRelay"
+        ]
+      },
+      {
+        "contract": "LockDiscount",
+        "constructorArgs": [
+          "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
+          "$contract:PawnShop"
         ]
       },
       {
         "contract": "MilestoneBurn",
         "constructorArgs": [
-          "$token",
+          "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
           "$owner",
-          "0x5598aa9146215bc13eb26f2c692ad1461fd32982",
+          "$contract:FloorRelay",
           "$contract:PawnShop"
         ]
       }
-    ]
+    ],
+    "notes": "Ethereum mainnet (chain 1). Deploys the accepted audit-fixed Pawn source unchanged, as it stands after the launch-review fixes to PawnShop, LendingPool and VaultFactory (write-off realisation, auction-open clock, vault receiver check, release-vesting reconciliation); none of those changed a constructor. FloorRelay: no constructor arguments; IMD_ATTESTER 0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982 and CHAIN 1 are constants in source. PawnShop(owner, token, weth, attester): owner and feeRecipient are $owner; token is the existing PAWN token 0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478; WETH is mainnet 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; attester is the FloorRelay deployed first. Its constructor deploys LendingPool(owner=$owner, WETH, shop), a VaultFactory bound to the shop, and an active LockDiscount(token, shop) stored as discountModule(); it presets the identity.md collection with question hash 0x71ed43868c5c61fe21b72bbbdcc09913d4952a113a393c526e49f3289edf4be1 and leaves newLoansPaused true. The brief's 'CollateralVault implementation' has no counterpart in the accepted source: VaultFactory creates a full CollateralVault per loan (clones would need DELEGATECALL, which the launch forbids), so no implementation address exists. LockDiscount(token, shop) listed here is the brief's standalone module; it is distinct from PawnShop.discountModule() and is not activated by deployment. MilestoneBurn(token, setter, signer, shop): setter is $owner (one-time question setter), signer is FloorRelay as the shop's initial attester (it later follows the shop through syncSigner), shop is PawnShop; its question hash stays unset until the owner sets it. All constructors are nonpayable, make no external calls, send no ETH and need no initialization; runtime sizes build at 21,853 bytes for PawnShop and under 13 KB for every other contract, within EIP-170. This manifest is a deployment plan, not a deployment record. After deployment the handoff must verify the unchanged source on Etherscan and record the four factory addresses plus PawnShop.lendingPool(), PawnShop.vaultFactory() and PawnShop.discountModule() (marking which LockDiscount is active) in the launch record, web/deployment.json, web/public/imd-deployment.json and keeper/config.json with the audit-fixed ABIs from docs/abi, then publish the site under its existing name against them. No addresses are invented here."
   },
   "contracts": [
     {
@@ -56,23 +50,118 @@
       "creationCodeHash": "a64c09f3e5c6f569dfecf476293e251fdb23ba8836947878dc6ea77d8492b697"
     },
     {
+      "name": "FloorRelay",
+      "address": "0x1ff0fb56f9a6c5c5c8201906d487ec4d8f5afc50",
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "blockNumber": 26153528,
+      "creationCodeHash": "33ff0378ec33c807b2c5d078b39d311405118687a3a3f963de33de2624b3dcfe",
+      "abiHash": "ba3f8fbbd0373a2d5036be211c3ac23bafdafa9be2dceb998217acb2947a4406"
+    },
+    {
       "name": "PawnShop",
-      "txHash": "0x190ffdf73e9858237c6f80151e0572214cb94d91e8cfbfd6ce9c408adaddb216",
-      "abiHash": "7ee8ec49dadad83603a72902aeea21337b839e5853217701c467c08c25328288",
-      "address": "0x0cc05d3b2879e8dfd18e987d1a50008506cc3756",
-      "blockNumber": 26146519,
-      "creationCodeHash": "72b6434d194c20bcc92bc65cbb81a33a2dd07012128d0a67128aab3f679f128e"
+      "address": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "blockNumber": 26153528,
+      "creationCodeHash": "0016012cc3d2af2a056b6411f1a2000718c0d0813406af55500a3f6aadd597aa",
+      "abiHash": "0990c160149ec460595c077081c3b8e8f893b0c0b05646c9525e84c5528bbaf9"
     },
     {
       "name": "MilestoneBurn",
-      "txHash": "0x190ffdf73e9858237c6f80151e0572214cb94d91e8cfbfd6ce9c408adaddb216",
-      "abiHash": "d872655e37501ee5f881011d8129998cba2d0ca746a27253084bb78319c88523",
-      "address": "0xb0316e0090501b7048e2876d90bb0471a5d7b6fb",
-      "blockNumber": 26146519,
-      "creationCodeHash": "2c8ec3199090de51d5c8eb783e051231dfac614b550e776b4bcb7967423636f0"
+      "address": "0x45098bc496b3fdc870f89b8785047fb0e19ee99a",
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+      "blockNumber": 26153528,
+      "creationCodeHash": "7f4e80a449a295ab8761a559159bb101b1b88cce716464e1662daae58d0354a6",
+      "abiHash": "9d80884c65cdea030e631d6f2fd725179d47d55a1fc6561d3800cfd90bc9a893"
+    },
+    {
+      "name": "LendingPool",
+      "address": "0xe51a10d7b6978d153ad5075818c22e6ddfe15160",
+      "abiHash": "3fdeab41a8974b4a00a24e2f43b1b0add6ff821bad49a9726d8d0e63ddaa73a2",
+      "discoveredFrom": {
+        "address": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+        "getter": "lendingPool",
+        "blockNumber": 26156401
+      },
+      "blockNumber": 26153528,
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3"
+    },
+    {
+      "name": "LockDiscount",
+      "address": "0x2546b64664146b1efc4fe66284386961fa25d52d",
+      "abiHash": "66d0a871bf5ed26330b07e063ed358029222838c5b7209e053bccef75624f367",
+      "discoveredFrom": {
+        "address": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+        "getter": "discountModule",
+        "blockNumber": 26156401
+      },
+      "blockNumber": 26153528,
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3"
+    },
+    {
+      "name": "VaultFactory",
+      "address": "0xa7820e9e40630f5c3edffd5868f5e6e6f886681b",
+      "abiHash": "a9a8034f6f6013c0be2627ee7952a5184d135880f8f23dd1a2534d169e03c065",
+      "discoveredFrom": {
+        "address": "0xf0d9300d7d891bc842da540cc4ddef050da9bcd4",
+        "getter": "vaultFactory",
+        "blockNumber": 26156401
+      },
+      "blockNumber": 26153528,
+      "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3"
     }
   ],
-  "sourceCommit": "acb96152d7df6bba4f50f9946c7977026fea42c1",
   "abiInstructions": "Build ABIs from this exact source commit; compare canonicalKeccak(abi) with abiHash. Verify deployed code on the stated chain before enabling transactions.",
-  "attestationHash": "396dcb5c699d62a2cee6148b7b368a4b00638c89bdacea635d020a8304a3a288"
+  "poolKey": {
+    "fee": 12500,
+    "hooks": "0x784ff9a3ac5d88a30bfff6f7f2a270161fbe6000",
+    "currency0": "0x0000000000000000000000000000000000000000",
+    "currency1": "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
+    "tickSpacing": 60
+  },
+  "standaloneLockDiscount": {
+    "name": "LockDiscount",
+    "address": "0x071b4d8f098b2a3611996a41da3c2c96d53482d7",
+    "txHash": "0x9a3354d2f181763c40663d24fc771f9d63c05fd6e873c470cc072002300ab6e3",
+    "blockNumber": 26153528,
+    "creationCodeHash": "881858532b13793dd3599fc838b37b1fc1ca1a0315db66759340a03b29e32dc9",
+    "abiHash": "66d0a871bf5ed26330b07e063ed358029222838c5b7209e053bccef75624f367"
+  },
+  "verification": {
+    "blockNumber": 26156401,
+    "blockHash": "0x82ecc93f7d01f230aba42a9ffb3dccb8ea90e3b6d9d78318c318650a11a1fc7e",
+    "rpc": "https://ethereum-rpc.publicnode.com",
+    "report": "docs/frontend/relaunch/mainnet-verification.json"
+  },
+  "tokenLaunch": {
+    "launchId": "2cf5339f-be68-4464-9276-f13ba0d6c070",
+    "sourceCommit": "acb96152d7df6bba4f50f9946c7977026fea42c1",
+    "repoUrl": "https://github.com/identity-md-launches/launch-994-workflow-contract-stage-context",
+    "attestationHash": "396dcb5c699d62a2cee6148b7b368a4b00638c89bdacea635d020a8304a3a288",
+    "contracts": [
+      {
+        "name": "LaunchToken",
+        "txHash": "0x190ffdf73e9858237c6f80151e0572214cb94d91e8cfbfd6ce9c408adaddb216",
+        "abiHash": "38880b8e56d42ce900f744a7908c7139632a49f1c3f33385c64ceaed29d37bee",
+        "address": "0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478",
+        "blockNumber": 26146519,
+        "creationCodeHash": "a64c09f3e5c6f569dfecf476293e251fdb23ba8836947878dc6ea77d8492b697"
+      },
+      {
+        "name": "PawnShop",
+        "txHash": "0x190ffdf73e9858237c6f80151e0572214cb94d91e8cfbfd6ce9c408adaddb216",
+        "abiHash": "7ee8ec49dadad83603a72902aeea21337b839e5853217701c467c08c25328288",
+        "address": "0x0cc05d3b2879e8dfd18e987d1a50008506cc3756",
+        "blockNumber": 26146519,
+        "creationCodeHash": "72b6434d194c20bcc92bc65cbb81a33a2dd07012128d0a67128aab3f679f128e"
+      },
+      {
+        "name": "MilestoneBurn",
+        "txHash": "0x190ffdf73e9858237c6f80151e0572214cb94d91e8cfbfd6ce9c408adaddb216",
+        "abiHash": "d872655e37501ee5f881011d8129998cba2d0ca746a27253084bb78319c88523",
+        "address": "0xb0316e0090501b7048e2876d90bb0471a5d7b6fb",
+        "blockNumber": 26146519,
+        "creationCodeHash": "2c8ec3199090de51d5c8eb783e051231dfac614b550e776b4bcb7967423636f0"
+      }
+    ]
+  }
 }

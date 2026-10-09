@@ -1,0 +1,98 @@
+{
+  "checkedAt": "2026-10-09T17:52:25.762Z",
+  "browser": "141.0.7390.37",
+  "mode": "Production dist at /preview/; deterministic RPC and wallet fixtures; signed test attestations; no mainnet transactions",
+  "checks": [
+    {
+      "name": "Setup lists the new deployments; owner explicitly approves a floor hash then posts with no automatic transaction",
+      "result": "passed"
+    },
+    {
+      "name": "Disconnected visitor can fetch a floor and sees its hash while waiting for owner approval",
+      "result": "passed"
+    },
+    {
+      "name": "An approved floor skips approval; owner approval revoked before review prevents posting",
+      "result": "passed"
+    },
+    {
+      "name": "Below $1M shows the signed value and no pin or burn; tampered and stale answers are rejected",
+      "result": "passed"
+    },
+    {
+      "name": "At exactly $1M the setter pins once, then Burn becomes available and uses the verified evidence",
+      "result": "passed"
+    },
+    {
+      "name": "Immutable setter can re-pin from the public Burn section even when not the PawnShop owner",
+      "result": "passed"
+    },
+    {
+      "name": "Non-setter waits for pin; countdown respects earlier signed expiry and disables an open review",
+      "result": "passed"
+    },
+    {
+      "name": "Responsive Setup, keyboard review, reduced motion, risk disclosures and automated accessibility",
+      "result": "passed"
+    }
+  ],
+  "consoleErrors": [],
+  "failedResources": [],
+  "viewports": [
+    {
+      "width": 320,
+      "noOverflow": true
+    },
+    {
+      "width": 390,
+      "noOverflow": true
+    },
+    {
+      "width": 800,
+      "noOverflow": true
+    },
+    {
+      "width": 1440,
+      "noOverflow": true
+    }
+  ],
+  "accessibility": [
+    {
+      "route": "#setup",
+      "violations": []
+    }
+  ],
+  "contrasts": [
+    {
+      "selector": ".oracle-flow > p",
+      "foreground": "rgb(242, 232, 208)",
+      "background": "rgb(23, 59, 50)",
+      "ratio": 10.086737091356818
+    },
+    {
+      "selector": ".oracle-flow .muted",
+      "foreground": "rgb(201, 198, 172)",
+      "background": "rgb(23, 59, 50)",
+      "ratio": 7.117277341306247
+    },
+    {
+      "selector": ".oracle-flow button",
+      "foreground": "rgb(13, 38, 25)",
+      "background": "rgb(224, 177, 76)",
+      "ratio": 8.072996916137127
+    },
+    {
+      "selector": ".oracle-flow .notice.warning",
+      "foreground": "rgb(246, 210, 122)",
+      "background": "rgb(64, 57, 33)",
+      "ratio": 7.899492707462486
+    },
+    {
+      "selector": ".oracle-answer code",
+      "foreground": "rgb(242, 232, 208)",
+      "background": "rgb(23, 59, 50)",
+      "ratio": 10.086737091356818
+    }
+  ],
+  "result": "passed"
+}

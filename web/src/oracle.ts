@@ -11,12 +11,24 @@ import {
   type Hex,
 } from "viem";
 import relayArtifact from "./floor-relay.json";
-export const IMD_ATTESTER: Address = "0x5598aa9146215bc13eb26f2c692ad1461fd32982";
+export const IMD_ATTESTER: Address =
+  "0x5598aa9146215bc13eb26f2c692ad1461fd32982";
 export const API = "https://api.imd.fun";
 export const FLOOR_QUESTION =
   "What is the current floor price, in wei, of the identity.md NFT collection at 0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D on Ethereum mainnet, defined as the lowest active listing on OpenSea or Blur at the time of answering? Answer as a uint256 in wei.";
 export const CAP_QUESTION =
-  "What is the fully diluted market cap of the PAWN token (0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478, Ethereum mainnet), computed as total supply times the spot price from its Uniswap v4 ETH pool, converted to USD at the current ETH price? Answer as a uint256 in USD with 18 decimals.";
+  "What is the fully diluted market cap of the PAWN token (0x4f2bacee5f2e7ce3f48dfbd635d96e9a8fcbe478, Ethereum mainnet), computed as total supply times its 24-hour time-weighted average price from its Uniswap v4 ETH pool, converted to USD at the current ETH price? Answer as a uint256 in USD with 18 decimals.";
+export const BURN_MAX_AGE = 3600;
+export const BURN_MILESTONE = 1000000n * 10n ** 18n;
+export function evidenceDeadline(
+  kind: Kind,
+  attestation: { issuedAt: bigint; expiresAt: bigint },
+) {
+  return Math.min(
+    Number(attestation.issuedAt) + (kind === "cap" ? BURN_MAX_AGE : 93600),
+    Number(attestation.expiresAt),
+  );
+}
 export type Kind = "floor" | "cap";
 export const oracleTypes = {
   OracleAttestation: [
@@ -45,14 +57,21 @@ export function packRelay(attestation: any, signature: Hex): Hex {
   return encodeAbiParameters(relayParameters, [attestation, signature]);
 }
 export function isFloorRelay(code?: Hex) {
-  return !!code && code !== "0x" && keccak256(code) === relayArtifact.runtimeCodeHash;
+  return (
+    !!code && code !== "0x" && keccak256(code) === relayArtifact.runtimeCodeHash
+  );
 }
 // Discover the actual governed signer, without inventing a relay deployment address.
-export async function signerMode(client: { getCode: (args: { address: Address }) => Promise<Hex | undefined> }, signer: Address) {
+export async function signerMode(
+  client: { getCode: (args: { address: Address }) => Promise<Hex | undefined> },
+  signer: Address,
+) {
   const code = await client.getCode({ address: signer });
   if (isFloorRelay(code)) return "relay" as const;
   if (!code || code === "0x") return "direct" as const;
-  throw Error("The governed contract attester is not the verified FloorRelay build.");
+  throw Error(
+    "The governed contract attester is not the verified FloorRelay build.",
+  );
 }
 export const zeroHash = `0x${"0".repeat(64)}`;
 export const question = (kind: Kind) =>
@@ -182,10 +201,14 @@ export async function validateEvidence(
     throw Error("Invalid typed answer or panel consensus.");
   if (
     a.issuedAt > BigInt(now) ||
-    BigInt(now) - a.issuedAt > 93600n ||
+    BigInt(now) - a.issuedAt > BigInt(kind === "cap" ? BURN_MAX_AGE : 93600) ||
     a.expiresAt < BigInt(now)
   )
-    throw Error("Attestation is stale, expired or issued in the future.");
+    throw Error(
+      kind === "cap"
+        ? "Market-cap answer is over 1 hour old, expired or issued in the future. Fetch a fresh request before pinning or burning."
+        : "Attestation is stale, expired or issued in the future. Fetch a fresh floor request.",
+    );
   // The contract accepts any signed lifetime and is never fresh past the signed expiry.
   if (kind === "floor" && a.expiresAt <= a.issuedAt)
     throw Error("Floor attestation must expire after it was issued.");
@@ -208,6 +231,12 @@ export async function validateEvidence(
     throw Error("Invalid oracle signature.");
   const [value] = decodeAbiParameters(parseAbiParameters("uint256"), a.answer);
   if (kind === "floor" && value === 0n) throw Error("Floor must be positive.");
-  if (!/^0x[0-9a-f]{130}$/i.test(t.signature)) throw Error("Expected a 65-byte IMD signature.");
-  return { attestation: a, signature: mode === "relay" ? packRelay(a, t.signature) : t.signature as Hex, value };
+  if (!/^0x[0-9a-f]{130}$/i.test(t.signature))
+    throw Error("Expected a 65-byte IMD signature.");
+  return {
+    attestation: a,
+    signature:
+      mode === "relay" ? packRelay(a, t.signature) : (t.signature as Hex),
+    value,
+  };
 }
