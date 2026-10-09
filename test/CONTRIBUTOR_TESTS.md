@@ -25,6 +25,16 @@ Known findings that these tests document rather than assert as correct are in `.
 
 Local validation of this contribution: `forge test` passed 159 tests across 25 suites (the four invariant campaigns included) with no failures or skips.
 
+## Revision: remaining edges and the live token (same contributor, later round)
+
+| Suite | Properties exercised |
+| --- | --- |
+| `RevisionEdges.t.sol` | The overdue mark against a moving floor: one second before due is refused, a falling floor raises the mark, a rising floor is refused rather than lowering it, a repeat at the same floor is a no-op, and only the auction start (token held) or the borrower's extension lower it. Re-queueing the identical governance change restarts its 48-hour clock, so the first clock cannot execute it early, and cancelling an unknown operation touches nothing. A disabled collection refuses new loans while its open loans still extend, repay, default, auction and sell. The ERC-20 (WETH) deposit, mint, withdraw and redeem paths stop at the cap and at idle liquidity with the standard ERC-4626 limit errors, refuse a zero receiver and zero amounts, and bob's then the buyer's exits show the stake-versus-idle bound. A fork test compares the live PAWN token's runtime code with `LaunchToken` and checks an exact transfer; it skips unless `PAWN_MAINNET_RPC_URL` is set, so the offline verifier run is unaffected. |
+
+Live checks run in this round over a public mainnet RPC: the PAWN token at `0x4f2b…e478` has runtime code byte-identical to the local `LaunchToken` (SHA-256 of both deployed bytecodes match, symbol `PAWN`, 18 decimals, supply 1e27), so the exact-transfer assumption LockDiscount and MilestoneBurn rely on is the one the offline `LaunchToken` tests cover and is no longer an owed check. WETH9 and the identity.md seat collection (`IDMD`) have code at the configured addresses; the IMD attester address has none, as expected for a signing key. The fork test above passed against that RPC locally. Still owed on a fork: WETH9's own `withdraw` stipend through the real contract (covered offline by the stand-in in `ExternalDependencies.t.sol`) and a live floor through FloorRelay.
+
+Defect reported this round rather than asserted: `PawnShop.markOverdue` books `principal - min(principal, floor / 2)` without checking whether the vault still holds the collateral, so a loan whose seat was revoked is marked as a zero loss under a 1 ETH floor for the whole three-day grace period, and a lender who exits in that window leaves the entire principal loss to the lenders who stay. The reproduction and a self-contained failing proof are in `.imd-findings.json`.
+
 Run `forge build` and `forge test`. No extra dependencies, environment variables, RPC access or `vm.setEnv` are required. During this contribution, build artifacts and logs were directed into `test/scratch/` to keep all writes in the assignment's scope; those files are not part of the deliverable.
 
 Local revision validation: `forge build` passed; `forge test` passed 92 tests across 17 suites, with no failures or skips. The four invariant campaigns completed 69,632 random handler calls with no unexpected reverts. These results are local checks, not an independent review or deployment approval.
